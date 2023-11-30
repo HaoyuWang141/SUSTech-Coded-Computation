@@ -1,0 +1,40 @@
+import torch
+from torch import nn
+from math import prod
+
+from encoder.encoder import Encoder
+
+
+class MLPEncoder(Encoder):
+    def __init__(self, num_in: int, num_out: int, in_dim: tuple):
+        super().__init__(num_in, num_out)
+        self.out_dim = in_dim
+
+        self.nn = nn.Sequential(
+            nn.Linear(num_in * prod(in_dim), num_in * prod(in_dim)),
+            nn.ReLU(),
+            nn.Linear(num_in * prod(in_dim), num_out * prod(in_dim)),
+        )
+
+    def forward(self, datasets: list[torch.Tensor]) -> list[torch.Tensor]:
+        datasets = torch.stack(datasets, dim=1)
+        batch_size = datasets.size(0)
+        datasets = datasets.view(batch_size, -1)
+        out = self.nn(datasets)
+        out = out.view(batch_size, self.num_out, *self.out_dim)
+        out = list(torch.unbind(out, dim=1))
+        return out
+
+
+if __name__ == "__main__":
+    encoder = MLPEncoder(4, 2, (1, 28, 28))
+    print(encoder)
+    sample_data = [
+        torch.randn(5, 1, 28, 28),
+        torch.randn(5, 1, 28, 28),
+        torch.randn(5, 1, 28, 28),
+        torch.randn(5, 1, 28, 28),
+    ]
+    output = encoder(sample_data)
+    print(f"output num: {len(output)}")
+    print(f"output shape: {output[0].shape}")

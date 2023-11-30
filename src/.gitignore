@@ -1,0 +1,19 @@
+# Ignore compiled files
+*.o
+*.out
+
+# Ignore temporary files
+*~
+
+# Ignore IDE files
+.idea/
+.vscode/
+
+# Ignore build output
+/build/
+
+# Ignore dependencies
+/node_modules/
+
+# Ignore data
+data/
