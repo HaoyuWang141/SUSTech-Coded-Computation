@@ -6,10 +6,8 @@ from decoder.decoder import Decoder
 
 
 class MLPDecoder(Decoder):
-    def __init__(self, num_in: int, num_out: int, in_dim: tuple):
-        super().__init__(num_in, num_out)
-        self.out_dim = in_dim
-
+    def __init__(self, num_in: int, num_out: int, in_dim: tuple) -> None:
+        super().__init__(num_in, num_out, in_dim)
         self.nn = nn.Sequential(
             nn.Linear(num_in * prod(in_dim), num_out * prod(in_dim)),
             nn.ReLU(),

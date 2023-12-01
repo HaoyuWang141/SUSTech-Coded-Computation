@@ -11,6 +11,8 @@
 
 # Ignore build output
 /build/
+__pycache__/
+*.pyc
 
 # Ignore dependencies
 /node_modules/
