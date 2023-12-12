@@ -1,13 +1,17 @@
 {
     "WORK_FLOW": [
         "train",
-        "save",
         "test"
     ],
     "general": {
         "data_split_num": 2,
         "redundancy_num": 1,
         "batch_size": 64,
+        "split_data_shape": [
+            1,
+            28,
+            20
+        ],
         "base_model": {
             "args": {
                 "input_dim": [
@@ -27,7 +31,7 @@
             "class": "decoder.mlp_decoder.MLPDecoder"
         }
     },
-    "training": {
+    "train": {
         "train_dataset": {
             "class": "dataset.splited_dataset.SplitedTrainDataset",
             "path": "data/MNIST/split/{{ data_split_num }}/split_train_datasets.pt"
@@ -59,20 +63,12 @@
         "epoch_num": 10,
         "save_interval": 1
     },
-    "testing": {
+    "test": {
         "test_dataset": {
             "class": "dataset.splited_dataset.SplitedTestDataset",
             "path": "data/MNIST/split/{{ data_split_num }}/split_test_datasets.pt"
         },
-        "lose_device_index": [
-            0,
-            1
-        ]
-    },
-    "saving": {
-        "save_dir": "save/mnist/base_model-LeNet5/"
-    },
-    "loading": {
-        "load_path": "save/mnist/base_model-LeNet5/"
+        "lose_device_index": null,
+        "lose_device_num": 1
     }
 }

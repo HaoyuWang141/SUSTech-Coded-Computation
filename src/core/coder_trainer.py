@@ -1,4 +1,4 @@
-from util.util import construct, cal_output_size, lose_something
+from util.util import construct, lose_something
 from torch.utils.data import DataLoader
 import torch
 from tqdm import tqdm
@@ -52,7 +52,7 @@ class CoderTrainer:
             + f"redundancy_num: {self.redundancy_num}, "
             + f"distributed_device_num: {self.distributed_device_num}"
         )
-        print("Don't consider the lose device in training process.")
+        print("Not consider the lose device in training process.")
 
         self.conv_segment.to(self.device)
         self.encoder.to(self.device)
@@ -350,10 +350,7 @@ class CoderTrainer:
             {
                 "num_in": self.distributed_device_num,
                 "num_out": self.data_split_num,
-                "in_dim": cal_output_size(
-                    self.conv_segment,
-                    self.split_data_shape,
-                ),
+                "in_dim": self.base_model.calculate_conv_output(self.split_data_shape),
             },
         )
 

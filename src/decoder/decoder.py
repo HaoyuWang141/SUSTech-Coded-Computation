@@ -12,9 +12,11 @@ class Decoder(nn.Module):
         Parameters
         ----------
             num_in: int
-                Number of input units for a forward pass of the coder.
+                Number of input units for a forward pass of the coder. (number of device: N)
             num_out: int
-                Number of output units from a forward pass of the coder.
+                Number of output units from a forward pass of the coder. (number of split data: K)
+            in_dim: tuple
+                Dimension of the input data for a forward pass of the coder. shape: (channel, height, width)
         """
         super().__init__()
         self.num_in = num_in

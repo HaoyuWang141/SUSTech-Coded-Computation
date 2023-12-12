@@ -140,6 +140,12 @@ def cal_input_range(layers: nn.Sequential, output_range: tuple) -> tuple:
 def partition_range(height, width, partition_num):
     return partition_strategy1(height, width, partition_num)
 
+"""
+partition strategy 1:
+    partition the width of the image into partition_num partitions
+    
+TODO: support more partition strategies, e.g. partition height, partition both height and width
+"""
 
 def partition_strategy1(height, width, partition_num):
     assert width % partition_num == 0
@@ -209,8 +215,7 @@ if __name__ == "__main__":
         conv_segment,
         dataset,
         K,
-        False,
-        f"data/MNIST/split/{K}/split_test_dataset.pt",
+        train=False,
     )
 
     print("data_partition() test passed!")

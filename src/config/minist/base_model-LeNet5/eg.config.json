@@ -2,6 +2,8 @@
     "WORK_FLOW": [
         "base",
         "train",
+        "save",
+        "load",
         "test"
     ],
     "general": {

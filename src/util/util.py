@@ -145,20 +145,42 @@ def write_vals(outfile, vals, names):
         write_value(v, outfile.format(n))
 
 
-def cal_output_size(layers: nn.Sequential, input_size: tuple) -> tuple:
+def cal_input_shape(layers: nn.Sequential, output_shape: tuple) -> tuple:
     """
-    Calculate the output range of the conv segment
+    Calculate the input shape of the conv segment given the output shape
 
     :param layers: the conv segment of model
-    :param input_range: the input range of the conv segment, (channel, height, width)
+    :param output_shape: the output shape of the conv segment, (channel, height, width)
 
-    :return: the output range of the conv segment, (channel, height, width)
+    :return: the input shape of the conv segment, (channel, height, width)
     """
-    x = torch.zeros(1, *input_size)
-    device = layers[0].weight.device
-    x = x.to(device)
-    y = layers(x)
-    return tuple(y.size()[1:])
+    channel, height, width = output_shape
+
+    for layer in reversed(layers):
+        """
+        TODO: support more layers, if needed
+        """
+        if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.MaxPool2d):
+            kernel_size = (
+                layer.kernel_size
+                if isinstance(layer.kernel_size, tuple)
+                else (layer.kernel_size, layer.kernel_size)
+            )
+            stride = (
+                layer.stride
+                if isinstance(layer.stride, tuple)
+                else (layer.stride, layer.stride)
+            )
+            padding = (
+                layer.padding
+                if isinstance(layer.padding, tuple)
+                else (layer.padding, layer.padding)
+            )
+
+            height = (height - 1) * stride[0] + kernel_size[0] - padding[0]
+            width = (width - 1) * stride[1] + kernel_size[1] - padding[1]
+
+    return channel, height, width
 
 
 def lose_something(
