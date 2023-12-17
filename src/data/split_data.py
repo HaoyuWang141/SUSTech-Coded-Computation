@@ -25,13 +25,13 @@ print(f"Test dataset: {len(dataset)}")
 print("image size: ", dataset[0][0].size())
 
 # TODO: change your split data params: split_num, train (true=train, false=test), and output_file
-# split_data(
-#     layers=model.get_conv_segment(),
-#     dataset=dataset,
-#     split_num=1,
-#     train=False,
-#     output_file=f"./data/MNIST/split/1/split_test_datasets.pt",
-# )
+split_data(
+    layers=model.get_conv_segment(),
+    dataset=dataset,
+    split_num=1,
+    train=False,
+    output_file=f"./data/MNIST/split/1/split_test_datasets.pt",
+)
 
 # print("-" * 50)
 

@@ -64,14 +64,14 @@ class LeNet5(BaseModel):
 
         def conv2d_out_size(size, kernel_size=5, stride=1, padding=0):
             return (
-                (size[0] - kernel_size - 2 * padding) // stride + 1,
-                (size[1] - kernel_size - 2 * padding) // stride + 1,
+                (size[0] - kernel_size + 2 * padding) // stride + 1,
+                (size[1] - kernel_size + 2 * padding) // stride + 1,
             )
 
         def maxpool2d_out_size(size, kernel_size=2, stride=2, padding=0):
             return (
-                (size[0] - kernel_size - 2 * padding) // stride + 1,
-                (size[1] - kernel_size - 2 * padding) // stride + 1,
+                (size[0] - kernel_size + 2 * padding) // stride + 1,
+                (size[1] - kernel_size + 2 * padding) // stride + 1,
             )
 
         conv1_out = conv2d_out_size((height, width))  # Conv1
