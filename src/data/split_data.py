@@ -8,7 +8,7 @@ from base_model.LeNet5 import LeNet5
 from base_model.VGG16 import VGG16
 import torch
 
-# TODO: change your base model and choose a trained model instance
+# TODO: change your base model and choose a trained model file
 
 # LeNet5
 model = LeNet5(input_dim=(1, 28, 28), num_classes=10)

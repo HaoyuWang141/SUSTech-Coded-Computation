@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from math import prod
 
-from decoder.decoder import Decoder
+from decoder import Decoder
 
 
 class MLPDecoder(Decoder):

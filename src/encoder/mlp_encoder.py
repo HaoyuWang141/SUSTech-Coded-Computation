@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from math import prod
 
-from encoder.encoder import Encoder
+from encoder import Encoder
 
 
 class MLPEncoder(Encoder):

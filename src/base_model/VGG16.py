@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from base_model.BaseModel import BaseModel
+import torch.nn.init as init
 
 
 class VGG16(BaseModel):
@@ -60,6 +61,17 @@ class VGG16(BaseModel):
             nn.Dropout(p=0.5),
             nn.Linear(4096, num_classes),
         )
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                init.kaiming_normal_(m.weight)
+                init.constant_(m.bias, 0)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.conv_block1(x)
@@ -69,6 +81,7 @@ class VGG16(BaseModel):
         x = self.conv_block5(x)
         x = x.view(x.size(0), -1)
         x = self.fc_block(x)
+        # x = torch.softmax(x, dim=1)
         return x
 
     def get_conv_segment(self) -> nn.Sequential:

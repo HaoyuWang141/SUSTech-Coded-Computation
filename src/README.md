@@ -11,7 +11,7 @@ PyTorch is needed. You can install it by following the instructions on the [pyto
 
 ### 2. Choose your TASK (Dataset) and download it
 
-In `./data` folder, there is `download.py` file. You can download your dataset.
+In `./data` folder, there is a `download.py` file. You can simply run it to download all datasets.
 
 ### 3. Choose a base model and train it
 
