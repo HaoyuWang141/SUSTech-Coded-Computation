@@ -39,6 +39,10 @@ class BasicBlock(nn.Module):
 
         return out
 
+    def get_sequence(self):
+        # TODO: 把block内的层打包成Sequence
+        return nn.Sequential(self.conv1, self.bn1, self.relu, self.conv2, self.bn2)
+
 class Bottleneck(nn.Module):
     expansion = 4
 
@@ -102,10 +106,10 @@ class ResNet18(BaseModel):
 
         if size_for_cifar:
             self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-            self.avgpool = nn.AvgPool2d(4)
+            # self.avgpool = nn.AvgPool2d(4)
             self.fc = nn.Linear(512 * block.expansion, num_classes)
         else:
-            self.avgpool = nn.AvgPool2d(7)
+            # self.avgpool = nn.AvgPool2d(7)
             self.fc = nn.Linear(256 * block.expansion, num_classes)
 
         # Initialize weights
@@ -147,7 +151,7 @@ class ResNet18(BaseModel):
         if self.size_for_cifar:
             x = self.layer4(x)
 
-        x = self.avgpool(x)
+        # x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
@@ -156,14 +160,13 @@ class ResNet18(BaseModel):
     def get_conv_segment(self) -> nn.Sequential:
         if self.size_for_cifar:
             return nn.Sequential(self.conv1, self.bn1, self.relu,
-                                 self.layer1, self.layer2, self.layer3, self.layer4,
-                                 self.avgpool)
+                                 *self.layer1, *self.layer2, *self.layer3, *self.layer4)
         else:
             return nn.Sequential(self.conv1, self.bn1, self.relu,
-                                 self.layer1, self.layer2, self.layer3,
-                                 self.avgpool)
+                                 *self.layer1, *self.layer2, *self.layer3)
 
     def get_fc_segment(self) -> nn.Sequential:
+        # return nn.Sequential(self.avgpool, self.fc)
         return nn.Sequential(self.fc)
 
     def calculate_conv_output(self, input_dim: tuple[int]) -> tuple[int, int, int]:
@@ -192,13 +195,15 @@ if __name__ == "__main__":
     input_dim = (3, 28, 28)  # Example input dimensions (channels, height, width)
     num_classes = 10  # Example number of output classes
     model = ResNet18(input_dim, num_classes)
-    print(model)
+    # print(model)
 
     x = torch.randn(1, 3, 28, 28)
     y = model(x)
-    print(y.shape)
+    # print(y.shape)
 
-    print(model.get_conv_segment())
+    # print(model.get_conv_segment())
     conv_segment = model.get_conv_segment()
     y = conv_segment(x)
+    print('-----------')
     print(y.shape)
+    print('-----------')

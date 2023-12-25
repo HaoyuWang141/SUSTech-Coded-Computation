@@ -6,20 +6,24 @@ from torchvision import datasets, transforms
 from util.split_data import split_data
 from base_model.LeNet5 import LeNet5
 from base_model.VGG16 import VGG16
+from base_model.ResNet18 import ResNet18
 import torch
 
 # TODO: change your base model and choose a trained model file
 
 # LeNet5
-model = LeNet5(input_dim=(1, 28, 28), num_classes=10)
-base_model_path = "../base_model/LeNet5/MNIST/2023_11_28/model.pth"
-model.load_state_dict(torch.load(base_model_path))
+# model = LeNet5(input_dim=(1, 28, 28), num_classes=10)
+# base_model_path = "../base_model/LeNet5/MNIST/2023_11_28/model.pth"
+# model.load_state_dict(torch.load(base_model_path))
 
 # VGG16
 # model = VGG16(input_dim=(3, 32, 32), num_classes=10)
 # base_model_path = "../base_model/VGG16/CIFAR10/2023_11_28/model.pth"
 # model.load_state_dict(torch.load(base_model_path))
 
+# ResNet
+model = ResNet18(input_dim=(3, 32, 32), num_classes=10)
+base_model_path = "../base_model/ResNet18/CIFAR10/2023_12_24/model.pth"
 
 # TODO: change your dataset and transform
 
@@ -27,15 +31,15 @@ transform = transforms.Compose(
     [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
 )
 
-# LeNet5
-dataset_name = "MNIST"
-test_dataset = datasets.MNIST(root="./", train=False, download=True, transform=transform)
-train_dataset = datasets.MNIST(root="./", train=True, download=True, transform=transform)
+# MNIST
+# dataset_name = "MNIST"
+# test_dataset = datasets.MNIST(root="./", train=False, download=True, transform=transform)
+# train_dataset = datasets.MNIST(root="./", train=True, download=True, transform=transform)
 
-# VGG16
-# dataset_name = "CIFAR10"
-# test_dataset = datasets.CIFAR10(root="./", train=False, download=True, transform=transform)
-# train_dataset = datasets.CIFAR10(root="./", train=True, download=True, transform=transform)
+# CIFAR10
+dataset_name = "CIFAR10"
+test_dataset = datasets.CIFAR10(root="./", train=False, download=True, transform=transform)
+train_dataset = datasets.CIFAR10(root="./", train=True, download=True, transform=transform)
 
 
 # TODO: change your list of split numbers

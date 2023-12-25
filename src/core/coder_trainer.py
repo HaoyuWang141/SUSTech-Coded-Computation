@@ -175,6 +175,7 @@ class CoderTrainer:
             # -----------------------------------------------
             # FC Segment
             output = torch.cat(decoded_output_list, dim=3)
+            # TODO: output 不能无脑使用-1拉成二维数据
             output = output.view(output.size(0), -1)
             # -----------------------------------------------
             _, predicted = torch.max(self.fc_segment(output).data, 1)

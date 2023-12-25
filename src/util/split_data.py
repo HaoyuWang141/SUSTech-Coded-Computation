@@ -109,6 +109,7 @@ def cal_input_range(layers: nn.Sequential, output_range: tuple) -> tuple:
     end_h, end_w = output_range[1]
 
     for layer in reversed(layers):
+        print(layer)
         if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.MaxPool2d):
             kernel_size = (
                 layer.kernel_size
