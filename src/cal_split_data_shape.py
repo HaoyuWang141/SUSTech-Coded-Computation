@@ -13,6 +13,7 @@ model = LeNet5(input_shape, class_num)
 # NOTE: the following code is not necessary to change
 conv_segment = model.get_conv_segment()
 output_shape = model.calculate_conv_output(input_shape)
+print('channel, height, width')
 print(f"output shape for original input: {output_shape}")
 split_output_shape = (
     output_shape[0],
