@@ -73,6 +73,8 @@ class CoderTrainer:
                 desc=f"Epoch {self.current_epoch+1}/{self.epoch_num}",
                 bar_format="{l_bar}{bar:20}{r_bar}",
             )
+            correct = 0
+            total = 0
             for images_list, label in train_loader_tqdm:
                 images_list = [images.to(self.device) for images in images_list]
                 label = label.to(self.device)
@@ -92,6 +94,11 @@ class CoderTrainer:
                 output = torch.cat(decoded_output_list, dim=3)
                 output = output.view(output.size(0), -1)
 
+                _, predicted = torch.max(self.fc_segment(output).data, 1)
+                shaped_label = torch.max(self.fc_segment(label.view(label.size(0), -1)).data, 1)[1]  # FIXME: 这里的label为什么长这样？([64,16,4,4])
+                correct += (predicted == shaped_label).sum().item()
+                total += label.size(0)
+
                 loss = self.criterion(output, label.view(label.size(0), -1))
                 self.loss_list[self.current_epoch].append(loss.item())
 
@@ -103,6 +110,8 @@ class CoderTrainer:
                 self.optimizer_decoder.step()
 
                 train_loader_tqdm.set_postfix(loss=loss.item())
+
+            print(f"Train Accuracy (Epoch {self.current_epoch+1}): {100 * correct / total}%")
 
         print("=" * 50)
 
@@ -175,16 +184,20 @@ class CoderTrainer:
             # -----------------------------------------------
             # FC Segment
             output = torch.cat(decoded_output_list, dim=3)
-            # TODO: output 不能无脑使用-1拉成二维数据
+            # FIXME: output 不能无脑使用-1拉成二维数据
             output = output.view(output.size(0), -1)
             # -----------------------------------------------
             _, predicted = torch.max(self.fc_segment(output).data, 1)
+            ####
+            # print(predicted.shape, labels.shape) # size = ([64])
+            # print(predicted, labels)
+            ####
             correct += (predicted == labels).sum().item()
             total += labels.size(0)
 
             test_loader_tqdm.set_postfix(Accuracy=f"{correct}/{total}")
 
-        print(f"Accuracy: {100 * correct / total}%")
+        print(f"Test Accuracy: {100 * correct / total}%")
         print("=" * 50)
 
     def save(self):
@@ -205,6 +218,7 @@ class CoderTrainer:
         os.makedirs(save_dir, exist_ok=True)
 
         current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M")
+
         self.save_path = os.path.join(save_dir, f"train-{current_time}.pth")
         torch.save(
             {
@@ -218,6 +232,17 @@ class CoderTrainer:
             self.save_path,
         )
         print(f"Model saved to {self.save_path}.")
+
+        loss_save_path = os.path.join(save_dir, f"loss-{current_time}.txt")
+        with open(loss_save_path, "w") as f:
+            for epoch, loss_list in enumerate(self.loss_list):
+                for loss in loss_list:
+                    f.write(f"epoch {epoch}: loss={loss}\n")
+            f.write("\n")
+            for epoch, loss_list in enumerate(self.loss_list):
+                f.write(f"epoch {epoch}: avg_loss={sum(loss_list)/len(loss_list)}\n")
+        print(f"Loss saved to {loss_save_path}.")
+
         print("=" * 50)
 
     def load(self):
