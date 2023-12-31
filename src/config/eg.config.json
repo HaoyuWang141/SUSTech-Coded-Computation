@@ -63,7 +63,7 @@
             },
             "class": "torch.optim.lr_scheduler.ReduceLROnPlateau"
         },
-        "epoch_num": 10,
+        "epoch_num": 1,
         "save_interval": 1
     },
     "test": {
@@ -75,7 +75,7 @@
         "lose_device_num": 1
     },
     "save": {
-        "save_dir": "save/mnist/base_model-LeNet5/"
+        "save_dir": "save/mnist/LeNet5/k2r1/mlp/"
     },
     "load": {
         "load_path": null

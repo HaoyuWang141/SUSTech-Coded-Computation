@@ -40,8 +40,8 @@ class BasicBlock(nn.Module):
         return out
 
     def get_sequence(self):
-        # TODO: 把block内的层打包成Sequence
-        return nn.Sequential(self.conv1, self.bn1, self.relu, self.conv2, self.bn2)
+        # Get sequence of layers except the downsample layer
+        return nn.Sequential(self.conv1, self.bn1, self.relu, self.conv2, self.bn2, self.relu)
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -81,6 +81,12 @@ class Bottleneck(nn.Module):
 
         return out
 
+    def get_sequence(self):
+        # Get sequence of layers except the downsample layer
+        return nn.Sequential(self.conv1, self.bn1, self.relu,
+                             self.conv2, self.bn2, self.relu,
+                             self.conv3, self.bn3, self.relu)
+
 
 class ResNet18(BaseModel):
 
@@ -88,6 +94,7 @@ class ResNet18(BaseModel):
                  block=BasicBlock, layers=[2, 2, 2, 2], size_for_cifar=True):
         # Argument `input_dim` is only used to check whether 'size_for_cifar' is True.
 
+        self.blk = block
         self.inplanes = 64
         super(ResNet18, self).__init__()
         input_dim = tuple(input_dim)
@@ -107,10 +114,12 @@ class ResNet18(BaseModel):
         if size_for_cifar:
             self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
             # self.avgpool = nn.AvgPool2d(4)
-            self.fc = nn.Linear(512 * block.expansion, num_classes)
+            # self.fc = nn.Linear(512 * block.expansion, num_classes)
+            self.fc = nn.Linear(512 * block.expansion * 4 * 4, num_classes)
         else:
             # self.avgpool = nn.AvgPool2d(7)
-            self.fc = nn.Linear(256 * block.expansion, num_classes)
+            # self.fc = nn.Linear(256 * block.expansion, num_classes)
+            self.fc = nn.Linear(256 * block.expansion * 7 * 7, num_classes)
 
         # Initialize weights
         for m in self.modules():
@@ -159,51 +168,72 @@ class ResNet18(BaseModel):
 
     def get_conv_segment(self) -> nn.Sequential:
         if self.size_for_cifar:
-            return nn.Sequential(self.conv1, self.bn1, self.relu,
+            raw = nn.Sequential(self.conv1, self.bn1, self.relu,
                                  *self.layer1, *self.layer2, *self.layer3, *self.layer4)
         else:
-            return nn.Sequential(self.conv1, self.bn1, self.relu,
+            raw = nn.Sequential(self.conv1, self.bn1, self.relu,
                                  *self.layer1, *self.layer2, *self.layer3)
+        layers = []
+        for layer in raw:
+            if isinstance(layer, BasicBlock) or isinstance(layer, Bottleneck):
+                for sub_layer in layer.get_sequence():
+                    layers.append(sub_layer)
+            else:
+                layers.append(layer)
+        return nn.Sequential(*layers)
+
 
     def get_fc_segment(self) -> nn.Sequential:
         # return nn.Sequential(self.avgpool, self.fc)
         return nn.Sequential(self.fc)
 
     def calculate_conv_output(self, input_dim: tuple[int]) -> tuple[int, int, int]:
-        # This method is useless in this file! Because the input size is already computed in the original code.
-
         # Assuming input_dim is a tuple (channels, height, width)
         channels, height, width = input_dim
 
         def conv2d_out_size(size, kernel_size=3, stride=1, padding=1):
+            # DEPRECATED
+            # This method is useless because the input size of fc_segment is already computed in the original code.
             return (
                 (size[0] - kernel_size + 2 * padding) // stride + 1,
                 (size[1] - kernel_size + 2 * padding) // stride + 1,
             )
 
         def maxpool2d_out_size(size, kernel_size=2, stride=2, padding=0):
+            # DEPRECATED
+            # This method is useless because the input size of fc_segment is already computed in the original code.
             return (
                 (size[0] - kernel_size + 2 * padding) // stride + 1,
                 (size[1] - kernel_size + 2 * padding) // stride + 1,
             )
 
-        return (0, 0, 0,)
+        if self.size_for_cifar:
+            # return (512 * self.blk.expansion, 1, 1)
+            return (512 * self.blk.expansion, 4, 4)
+        else:
+            # return (256 * self.blk.expansion, 1, 1)
+            return (256 * self.blk.expansion, 7, 7)
 
 
 if __name__ == "__main__":
     # Example usage
-    input_dim = (3, 28, 28)  # Example input dimensions (channels, height, width)
-    num_classes = 10  # Example number of output classes
+
+    num_classes = 10
+
+    # input_dim = (1, 28, 28)
+    # x = torch.randn(1, 1, 28, 28)
+    input_dim = (3, 32, 32)
+    x = torch.randn(1, 3, 32, 32)
+
     model = ResNet18(input_dim, num_classes)
+    # model = ResNet18(input_dim, num_classes, block=Bottleneck)
+
     # print(model)
+    print(model.get_conv_segment())
 
-    x = torch.randn(1, 3, 28, 28)
-    y = model(x)
+    # y = model(x)
     # print(y.shape)
-
-    # print(model.get_conv_segment())
-    conv_segment = model.get_conv_segment()
-    y = conv_segment(x)
-    print('-----------')
-    print(y.shape)
-    print('-----------')
+    #
+    # conv_segment = model.get_conv_segment()
+    # y = conv_segment(x)
+    # print(y.shape)

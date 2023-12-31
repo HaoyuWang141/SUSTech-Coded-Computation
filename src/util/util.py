@@ -177,8 +177,12 @@ def cal_input_shape(layers: nn.Sequential, output_shape: tuple) -> tuple:
                 else (layer.padding, layer.padding)
             )
 
-            height = (height - 1) * stride[0] + kernel_size[0] - padding[0]
-            width = (width - 1) * stride[1] + kernel_size[1] - padding[1]
+            # height = (height - 1) * stride[0] + kernel_size[0] - padding[0]
+            # width = (width - 1) * stride[1] + kernel_size[1] - padding[1]
+
+            # FIXME
+            height = (height - 1) * stride[0] + kernel_size[0] - 2 * padding[0]
+            width = (width - 1) * stride[1] + kernel_size[1] - 2 * padding[1]
 
     return channel, height, width
 

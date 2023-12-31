@@ -9,35 +9,34 @@ pip install -r requirements.txt
 ```
 PyTorch is needed. You can install it by following the instructions on the [pytorch website](https://pytorch.org/get-started).
 
-### 2. Choose your TASK (Dataset) and download it
+### 2. Choose a base model and train it
 
-In `./data` folder, there is a `download.py` file. You can simply run it to download all datasets.
+You need a trained base model before training your coders. In `./base_model` folder, there are some base models, and trained base model files are in `./base_model/<MODEL>/<TASK>[/<DATE>]` folder. You can choose one from them or train a new base model.
 
-### 3. Choose a base model and train it
+If you are to train a new base model, you can use the `./test/train_base_model.ipynb` script to train and save your base model.
 
-In `./base_model` folder, there are some base models. You can choose one of them or implement your own base model. Then you need to train your base model and save it in `./base_model/<MODEL>/<TASK>[/<DATE>]` folder. You can refer the `./test/train_base_model.ipynb` script to train your base model.
+### 3. Choose a dataset and split it
 
-### 4. Split your dataset
+You need a spilted dataset before training your coders. In `./data/<DATASET>/split/<SPLIT NUM>/split_<test/train>_datasets.pt` folder, there are splited datasets. You can choose from them or split a dataset by yourself.
 
-In `./data/MNIST` folder, you can find the `split` directory. Split dataset is in this directory. You need to split the original dataset by yourself. You can refer `./data/split_data.py` to split data. The output path (`output_file=` in method `split_data`) is `./data/<DATASET>/split/<SPLIT NUM>/split_<test/train>_datasets.pt` folder.
+If you are to split a dataset, you can run `./data/split_data.py` to split data and save the splited dataset.
 
-### 5. Choose encoder and decoder
+### 4. Choose a config file
 
-### 6. Write your config file
+The final thing before training your coders is to choose or write a config file. In `./config/minist/LeNet5/k4r1/mlp` folder, there is a example `eg.config.json` file which you can refer to. And the details of config files are described in `./config/README.md`.
 
-In `./config` folder, there are `README.md` and `eg.config.json` file. You can write your own config file according to the examples. The details of the config file are described in `README.md`.
+If you are to write a new config file, you need to calculate the split input shape by hand and write it into your config file (`general -> split_data_shape`). You can use the `./cal_split_data_shape.py` script to calculate the split input shape. You need to overwrite something in this script marked by `TODO`.
 
-### 7. calculate the split input shape
+### 5. Run main.py
 
-You need to calculate the split input shape by hand and write it into your config file (`general -> split_data_shape`). You can use the `./cal_split_data_shape.py` script to calculate the split input shape. You need to overwrite something in this script marked by `TODO`.
-
-### 8. Run main.py
+Now you can run `main.py` to train and test your coders.
 
 ```
 python ./main.py <config path>
 
 e.g.
-python ./main.py config/minist/base_model-LeNet5/eg.config.json
+python ./main.py config/minist/LeNet5/k4r1/mlp/eg.config.json
+python ./main.py config/minist/LeNet5/k2r1/mlp/config.json
 ```
 
 ## Current Problems

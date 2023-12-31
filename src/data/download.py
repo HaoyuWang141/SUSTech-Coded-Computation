@@ -1,3 +1,5 @@
+# DEPRECATED
+
 # download datasets
 
 import torchvision

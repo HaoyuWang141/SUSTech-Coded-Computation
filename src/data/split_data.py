@@ -23,7 +23,7 @@ import torch
 
 # ResNet
 model = ResNet18(input_dim=(3, 32, 32), num_classes=10)
-base_model_path = "../base_model/ResNet18/CIFAR10/2023_12_24/model.pth"
+base_model_path = "../base_model/ResNet18/CIFAR10/2023_12_30/model.pth"
 
 # TODO: change your dataset and transform
 
@@ -36,18 +36,14 @@ transform = transforms.Compose(
 # test_dataset = datasets.MNIST(root="./", train=False, download=True, transform=transform)
 # train_dataset = datasets.MNIST(root="./", train=True, download=True, transform=transform)
 
-# TODO: change your split data params: split_num, train (true=train, false=test), and output_file
-split_data(
-    layers=model.get_conv_segment(),
-    dataset=dataset,
-    split_num=1,
-    train=False,
-    output_file=f"./data/MNIST/split/1/split_test_datasets.pt",
-)
+# CIFAR100
+# dataset_name = "CIFAR100"
+# test_dataset = datasets.CIFAR100(root="./", train=False, download=True, transform=transform)
+# train_dataset = datasets.CIFAR100(root="./", train=True, download=True, transform=transform)
 
 
 # TODO: change your list of split numbers
-split_nums = [2]  # you may choose from [1, 2, 4, ..]
+split_nums = [1, 2]  # you may choose a subset from [1, 2, 4, ..]
 
 
 print(f"Test dataset: {len(test_dataset)}")

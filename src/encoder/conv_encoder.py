@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from encoder import Encoder
+from encoder.encoder import Encoder
 
 
 class CatChannelConvEncoder(Encoder):

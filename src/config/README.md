@@ -75,4 +75,4 @@ The `load` section includes settings for loading the model:
 ## base
 The `base` section includes the testing for base model. It used to get the base line of Accuracy.
 
-+ `dataset`: the dataset for testing base model. It also needs to be `dataset.splited_dataset.SplitedTestDataset`, but `splie_num` is 1.
++ `dataset`: the dataset for testing base model. It also needs to be `dataset.splited_dataset.SplitedTestDataset`, but `split_num` is 1.
