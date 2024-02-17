@@ -155,7 +155,8 @@ def cal_input_shape(layers: nn.Sequential, output_shape: tuple) -> tuple:
     :return: the input shape of the conv segment, (channel, height, width)
     """
     channel, height, width = output_shape
-
+    print(f"channel: {channel}, height: {height}, width: {width}")
+    
     for layer in reversed(layers):
         """
         TODO: support more layers, if needed
@@ -183,6 +184,9 @@ def cal_input_shape(layers: nn.Sequential, output_shape: tuple) -> tuple:
             # FIXME
             height = (height - 1) * stride[0] + kernel_size[0] - 2 * padding[0]
             width = (width - 1) * stride[1] + kernel_size[1] - 2 * padding[1]
+            
+            print(f"stride: {stride}, kernel_size: {kernel_size}, padding: {padding}")
+            print(f"height: {height}, width: {width}")
 
     return channel, height, width
 

@@ -93,10 +93,17 @@ if __name__ == "__main__":
     print(model)
 
     x = torch.randn(1, 1, 28, 28)
-    y = model(x)
-    print(y.shape)
+    y1 = model(x)
+    print(y1.shape)
 
     print(model.get_conv_segment())
     conv_segment = model.get_conv_segment()
-    y = conv_segment(x)
-    print(y.shape)
+    y2 = conv_segment(x)
+    print(y2.shape)
+    fc_segment = model.get_fc_segment()
+    y2 = y2.view(y2.size(0), -1)
+    y2 = fc_segment(y2)
+    print(y2.shape)
+    
+    print(y1.data)
+    print(y2.data)

@@ -9,6 +9,9 @@ from base_model.VGG16 import VGG16
 from base_model.ResNet18 import ResNet18
 import torch
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("device: ", device)
+
 # TODO: change your base model and choose a trained model file
 
 # LeNet5
@@ -23,7 +26,7 @@ import torch
 
 # ResNet
 model = ResNet18(input_dim=(3, 32, 32), num_classes=10)
-base_model_path = "../base_model/ResNet18/CIFAR10/2023_12_30/model.pth"
+model.to(device)
 
 # TODO: change your dataset and transform
 
@@ -31,10 +34,14 @@ transform = transforms.Compose(
     [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
 )
 
-# MNIST
-# dataset_name = "MNIST"
-# test_dataset = datasets.MNIST(root="./", train=False, download=True, transform=transform)
-# train_dataset = datasets.MNIST(root="./", train=True, download=True, transform=transform)
+# CIFAR10
+dataset_name = "CIFAR10"
+test_dataset = datasets.CIFAR10(
+    root="./data", train=False, download=True, transform=transform
+)
+train_dataset = datasets.CIFAR10(
+    root="./data", train=True, download=True, transform=transform
+)
 
 # CIFAR100
 # dataset_name = "CIFAR100"
@@ -43,7 +50,7 @@ transform = transforms.Compose(
 
 
 # TODO: change your list of split numbers
-split_nums = [1, 2]  # you may choose a subset from [1, 2, 4, ..]
+split_nums = [1, ]  # you may choose a subset from [1, 2, 4, ..]
 
 
 print(f"Test dataset: {len(test_dataset)}")
@@ -54,15 +61,15 @@ print("image size: ", train_dataset[0][0].size())
 
 # Split test dataset
 
-for split_num in split_nums:
-    split_data(
-        layers=model.get_conv_segment(),
-        dataset=test_dataset,
-        split_num=split_num,
-        train=False,
-        output_file=f"./{dataset_name}/split/{split_num}/split_test_datasets.pt",
-    )
-    print("-" * 50)
+# for split_num in split_nums:
+#     split_data(
+#         layers=model.get_conv_segment(),
+#         dataset=test_dataset,
+#         split_num=split_num,
+#         train=False,
+#         output_file=f"./data/{dataset_name}/split/{split_num}/split_test_datasets.pt",
+#     )
+#     print("-" * 50)
 
 # Split train dataset
 
@@ -72,6 +79,6 @@ for split_num in split_nums:
         dataset=train_dataset,
         split_num=split_num,
         train=True,
-        output_file=f"./{dataset_name}/split/{split_num}/split_train_datasets.pt",
+        output_file=f"./data/{dataset_name}/split/{split_num}/split_train_datasets.pt",
     )
     print("-" * 50)

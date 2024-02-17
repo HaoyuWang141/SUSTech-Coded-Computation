@@ -4,6 +4,7 @@ from torchvision.datasets import VisionDataset
 from torch.utils.data import Dataset
 from tqdm import tqdm
 import os
+from util import util
 
 from dataset.splited_dataset import (
     SplitedTrainDataset,
@@ -28,20 +29,25 @@ def split_data(
     :return: partitioned input data. [VisionDataset, ...], VisionDataset = [(image, label), ...)], image.shape = (channel, height, width(partial))
     """
     input_size = dataset[0][0].size()  # (channel, height, width)
+    input_channel, input_height, input_width = input_size
     output_size = cal_output_size(layers, input_size)  # (channel, height, width)
     output_channel, output_height, output_width = output_size
 
     images_list = []
     conv_segment_labels = []
 
-    for output_range in partition_range(output_height, output_width, split_num):
+    assert output_width % split_num == 0
+    output_split_width = output_width // split_num
+    input_split_shape = util.cal_input_shape(
+        layers,
+        (output_channel, output_height, output_split_width),
+    )
+    print(input_width, split_num, input_split_shape[2])
+
+    for width_range in split_vector(input_width, split_num, input_split_shape[2]):
         # [start, end)
-        input_range = cal_input_range(
-            layers, output_range
-        )  # ((start_h, start_w), (end_h, end_w))
-
-        images = []
-
+        input_range = ((0, input_height), width_range)
+        images = torch.empty(0)
         dataset_tqdm = tqdm(
             dataset, desc=f"Spliting dataset, input_range is {input_range}"
         )
@@ -49,34 +55,35 @@ def split_data(
             start, end = input_range
             start_h, start_w = start
             end_h, end_w = end
-            images.append(img[:, start_h:end_h, start_w:end_w])
+            img_part = img[:, start_h:end_h, start_w:end_w]
+            images = torch.cat((images, img_part.unsqueeze(0)), dim=0)
 
             if train:
                 img = img.to(layers[0].weight.device)
                 conv_segment_labels.append(layers(img.unsqueeze(0)).squeeze(0))
 
-        images_list.append(torch.stack(images, dim=0))
+        images_list.append(images)
 
-    if train:
-        labels = conv_segment_labels
-        splited_dataset = SplitedTrainDataset(
-            images_list=images_list,
-            labels=labels,
-        )
-    else:
-        labels = [label for _, label in dataset]
-        splited_dataset = SplitedTestDataset(
-            images_list=images_list,
-            labels=labels,
-        )
+    # if train:
+    #     labels = conv_segment_labels
+    #     splited_dataset = SplitedTrainDataset(
+    #         images_list=images_list,
+    #         labels=labels,
+    #     )
+    # else:
+    #     labels = [label for _, label in dataset]
+    #     splited_dataset = SplitedTestDataset(
+    #         images_list=images_list,
+    #         labels=labels,
+    #     )
 
-    if output_file is not None:
-        path = os.path.dirname(output_file)
-        if not os.path.exists(path):
-            os.makedirs(path)
-        splited_dataset.save(output_file)
+    # if output_file is not None:
+    #     path = os.path.dirname(output_file)
+    #     if not os.path.exists(path):
+    #         os.makedirs(path)
+    #     splited_dataset.save(output_file)
 
-    return splited_dataset
+    # return splited_dataset
 
 
 def cal_output_size(layers: nn.Sequential, input_size: tuple) -> tuple:
@@ -95,50 +102,9 @@ def cal_output_size(layers: nn.Sequential, input_size: tuple) -> tuple:
     return tuple(y.size()[1:])
 
 
-def cal_input_range(layers: nn.Sequential, output_range: tuple) -> tuple:
-    """
-    Calculate the input range of the conv segment
-
-    :param layers: the conv segment of model
-    :param output_range: the output range of the conv segment, ((start_h, start_w), (end_h, end_w))
-
-    :return: the input range of the conv segment
-    """
-    # output_range is ((start_height, start_width), (end_height, end_width))
-    start_h, start_w = output_range[0]
-    end_h, end_w = output_range[1]
-
-    for layer in reversed(layers):
-        if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.MaxPool2d):
-            kernel_size = (
-                layer.kernel_size
-                if isinstance(layer.kernel_size, tuple)
-                else (layer.kernel_size, layer.kernel_size)
-            )
-            stride = (
-                layer.stride
-                if isinstance(layer.stride, tuple)
-                else (layer.stride, layer.stride)
-            )
-            padding = (
-                layer.padding
-                if isinstance(layer.padding, tuple)
-                else (layer.padding, layer.padding)
-            )
-
-            # 反向计算高度范围
-            start_h = max(0, (start_h * stride[0]) - padding[0])
-            end_h = (end_h - 1) * stride[0] + kernel_size[0] - padding[0]
-
-            # 反向计算宽度范围
-            start_w = max(0, (start_w * stride[1]) - padding[1])
-            end_w = (end_w - 1) * stride[1] + kernel_size[1] - padding[1]
-
-    return ((start_h, start_w), (end_h, end_w))
-
-
 def partition_range(height, width, partition_num):
     return partition_strategy1(height, width, partition_num)
+
 
 """
 partition strategy 1:
@@ -146,6 +112,7 @@ partition strategy 1:
     
 TODO: support more partition strategies, e.g. partition height, partition both height and width
 """
+
 
 def partition_strategy1(height, width, partition_num):
     assert width % partition_num == 0
@@ -155,6 +122,36 @@ def partition_strategy1(height, width, partition_num):
             (0, partitioned_width * i),
             (height, partitioned_width * (i + 1)),
         )
+
+
+def split_vector(L, k, l, overlap=True):
+    """
+    Args:
+    L (int): 要分割的总长度
+    k (int): 要分割的份数
+    l (int): 每份的长度
+    overlap (bool): 是否允许重叠
+
+    Returns:
+    List of tuples: 每份的起始坐标组成的列表
+    """
+    if not 1 <= l <= L:
+        raise ValueError("Invalid values for l and L")
+    
+    if k == 1:
+        yield 0, L
+        return
+    
+    vector = list(range(L))
+
+    if not overlap:
+        step = l
+    else:
+        step = max(1, (len(vector) - l) // (k - 1))
+
+    start_indices = [i for i in range(0, len(vector), step)][:k]
+    for start in start_indices:
+        yield start, start + l
 
 
 if __name__ == "__main__":
