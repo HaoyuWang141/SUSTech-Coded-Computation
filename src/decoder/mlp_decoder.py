@@ -17,6 +17,8 @@ class MLPDecoder(Decoder):
         )
 
     def forward(self, datasets: list[torch.Tensor]) -> list[torch.Tensor]:
+        if len(datasets) == 0 or self.num_out == 0:
+            return []
         datasets = torch.stack(datasets, dim=1)
         batch_size = datasets.size(0)
         datasets = datasets.view(batch_size, -1)
@@ -24,8 +26,8 @@ class MLPDecoder(Decoder):
         out = out.view(batch_size, self.num_out, *self.out_dim)
         out = list(torch.unbind(out, dim=1))
         return out
-    
-    
+
+
 if __name__ == "__main__":
     decoder = MLPDecoder(6, 4, (16, 4, 1))
     print(decoder)

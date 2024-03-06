@@ -15,6 +15,8 @@ class MLPEncoder(Encoder):
         )
 
     def forward(self, datasets: list[torch.Tensor]) -> list[torch.Tensor]:
+        if len(datasets) == 0 or self.num_out == 0:
+            return []
         datasets = torch.stack(datasets, dim=1)
         batch_size = datasets.size(0)
         datasets = datasets.view(batch_size, -1)

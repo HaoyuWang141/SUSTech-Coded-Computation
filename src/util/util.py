@@ -1,4 +1,5 @@
 """ Utility functions """
+
 import os
 from shutil import copyfile
 import torch
@@ -145,50 +146,125 @@ def write_vals(outfile, vals, names):
         write_value(v, outfile.format(n))
 
 
-def cal_input_shape(layers: nn.Sequential, output_shape: tuple) -> tuple:
-    """
-    Calculate the input shape of the conv segment given the output shape
+def cal_input_shape(
+    model: nn.Module,
+    original_input_shape: tuple,
+    original_output_shape: tuple,
+    split_num: int,
+) -> List[tuple]:
+    channels, height, width = original_output_shape
+    assert width % split_num == 0
+    split_width = width // split_num
+    output_range_list = [
+        (channels, height, split_width * i, split_width * (i + 1))
+        for i in range(split_num)
+    ]
 
-    :param layers: the conv segment of model
-    :param output_shape: the output shape of the conv segment, (channel, height, width)
+    layer_configs = []
+    layers = get_children(model)
+    _ = torch.randn(1, *original_input_shape)
+    for layer in layers:
+        config = {
+            "type": layer.__class__.__name__,
+            "layer": layer,
+            "input_shape": tuple(_.shape[1:]),
+        }
+        _ = layer(_)
+        config["output_shape"] = tuple(_.shape[1:])
+        layer_configs.append(config)
 
-    :return: the input shape of the conv segment, (channel, height, width)
+    input_range_list = [
+        reverse_module(layer_configs, *output_range)
+        for output_range in output_range_list
+    ]
+    return input_range_list
+
+
+def get_children(model: nn.Module) -> List[nn.Module]:
     """
-    channel, height, width = output_shape
-    print(f"channel: {channel}, height: {height}, width: {width}")
-    
-    for layer in reversed(layers):
+    Returns a list of children modules of the given model.
+    """
+    children = list(model.children())
+    if len(children) == 0:
+        return [model]
+    else:
+        return sum([get_children(c) for c in children], [])
+
+
+def reverse_module(
+    layer_configs,
+    output_channels,
+    output_height,
+    output_width_start,
+    output_width_end,
+):
+    input_range = (output_channels, output_height, output_width_start, output_width_end)
+    for config in reversed(layer_configs):
+        layer = config["layer"]
+        max_input_shape = config["input_shape"]
         """
         TODO: support more layers, if needed
         """
+        print(config)
+        print(input_range)
         if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.MaxPool2d):
-            kernel_size = (
-                layer.kernel_size
-                if isinstance(layer.kernel_size, tuple)
-                else (layer.kernel_size, layer.kernel_size)
-            )
-            stride = (
-                layer.stride
-                if isinstance(layer.stride, tuple)
-                else (layer.stride, layer.stride)
-            )
-            padding = (
-                layer.padding
-                if isinstance(layer.padding, tuple)
-                else (layer.padding, layer.padding)
-            )
+            input_range = reverse_fun(layer, max_input_shape, *input_range)
+        print(input_range)
+        print("-" * 50)
+    return input_range
 
-            # height = (height - 1) * stride[0] + kernel_size[0] - padding[0]
-            # width = (width - 1) * stride[1] + kernel_size[1] - padding[1]
 
-            # FIXME
-            height = (height - 1) * stride[0] + kernel_size[0] - 2 * padding[0]
-            width = (width - 1) * stride[1] + kernel_size[1] - 2 * padding[1]
-            
-            print(f"stride: {stride}, kernel_size: {kernel_size}, padding: {padding}")
-            print(f"height: {height}, width: {width}")
+def reverse_fun(
+    layer,
+    max_input_shape,
+    output_channels,
+    output_height,
+    output_width_start,
+    output_width_end,
+):
+    input_channels = layer.in_channels  # 输入的通道数
+    kernel_size = (
+        layer.kernel_size
+        if isinstance(layer.kernel_size, tuple)
+        else (layer.kernel_size, layer.kernel_size)
+    )
+    stride = (
+        layer.stride
+        if isinstance(layer.stride, tuple)
+        else (layer.stride, layer.stride)
+    )
+    padding = (
+        layer.padding
+        if isinstance(layer.padding, tuple)
+        else (layer.padding, layer.padding)
+    )
+    dilation = (
+        layer.dilation
+        if isinstance(layer.dilation, tuple)
+        else (layer.dilation, layer.dilation)
+    )
 
-    return channel, height, width
+    # Calculate input shape using the formula:
+    # output_size = (input_size - kernel_size + 2 * padding) / stride + 1
+    input_height = (output_height) * stride[0] + kernel_size[0] - 2 * padding[0]
+    input_width_start = output_width_start * stride[1] - padding[1]
+    input_width_end = (
+        (output_width_end - 1) * stride[1]
+        + (kernel_size[1] // 2)
+        - padding[1]
+        + (kernel_size[1] // 2)
+        + 1
+    )
+
+    assert input_channels == max_input_shape[0]
+    if input_height > max_input_shape[1]:
+        input_height = max_input_shape[1]
+    if input_width_start < 0:
+        input_width_start = 0
+    if input_width_end > max_input_shape[2]:
+        input_width_end = max_input_shape[2]
+
+    return input_channels, input_height, input_width_start, input_width_end
 
 
 def lose_something(
