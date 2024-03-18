@@ -46,10 +46,10 @@ class MyModel1(BaseModel):
         input_dim = tuple(input_dim)
         num_classes = int(num_classes)
         in_channels = input_dim[0]
-        self.conv_block1 = BasicBlock(in_channels, 10)
-        self.conv_block2 = BasicBlock(10, 16)
-        self.conv_block3 = BasicBlock(16, 32)
-        self.conv_block4 = BasicBlock(32, 64)
+        self.conv_block1 = BasicBlock(in_channels, 6)
+        self.conv_block2 = BasicBlock(6, 8)
+        self.conv_block3 = BasicBlock(8, 10)
+        self.conv_block4 = BasicBlock(10, 12)
         conv_output_size = self.calculate_conv_output(input_dim)
         fc_input_size = conv_output_size[0] * conv_output_size[1] * conv_output_size[2]
         self.fc1 = nn.Sequential(nn.Linear(fc_input_size, 120), nn.ReLU())

@@ -205,16 +205,18 @@ def reverse_module(
         """
         TODO: support more layers, if needed
         """
-        print(config)
-        print(input_range)
-        if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.MaxPool2d):
-            input_range = reverse_fun(layer, max_input_shape, *input_range)
-        print(input_range)
-        print("-" * 50)
+        # print(config)
+        # print(input_range)
+        if isinstance(layer, nn.Conv2d):
+            input_range = reverse_conv(layer, max_input_shape, *input_range)
+        if isinstance(layer, nn.MaxPool2d):
+            input_range = reverse_pool(layer, max_input_shape, *input_range)
+        # print(input_range)
+        # print("-" * 50)
     return input_range
 
 
-def reverse_fun(
+def reverse_conv(
     layer,
     max_input_shape,
     output_channels,
@@ -266,6 +268,58 @@ def reverse_fun(
 
     return input_channels, input_height, input_width_start, input_width_end
 
+
+def reverse_pool(
+    layer,
+    max_input_shape,
+    output_channels,
+    output_height,
+    output_width_start,
+    output_width_end,
+):
+    input_channels = output_channels  # 输入的通道数
+    kernel_size = (
+        layer.kernel_size
+        if isinstance(layer.kernel_size, tuple)
+        else (layer.kernel_size, layer.kernel_size)
+    )
+    stride = (
+        layer.stride
+        if isinstance(layer.stride, tuple)
+        else (layer.stride, layer.stride)
+    )
+    padding = (
+        layer.padding
+        if isinstance(layer.padding, tuple)
+        else (layer.padding, layer.padding)
+    )
+    dilation = (
+        layer.dilation
+        if isinstance(layer.dilation, tuple)
+        else (layer.dilation, layer.dilation)
+    )
+
+    # Calculate input shape using the formula:
+    # output_size = (input_size - kernel_size + 2 * padding) / stride + 1
+    input_height = (output_height) * stride[0] + kernel_size[0] - 2 * padding[0]
+    input_width_start = output_width_start * stride[1] - padding[1]
+    input_width_end = (
+        (output_width_end - 1) * stride[1]
+        + (kernel_size[1] // 2)
+        - padding[1]
+        + (kernel_size[1] // 2)
+        + 1
+    )
+
+    assert input_channels == max_input_shape[0]
+    if input_height > max_input_shape[1]:
+        input_height = max_input_shape[1]
+    if input_width_start < 0:
+        input_width_start = 0
+    if input_width_end > max_input_shape[2]:
+        input_width_end = max_input_shape[2]
+
+    return input_channels, input_height, input_width_start, input_width_end
 
 def lose_something(
     output_list: List[torch.Tensor],
