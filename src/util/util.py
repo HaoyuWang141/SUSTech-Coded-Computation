@@ -164,6 +164,7 @@ def cal_input_shape(
     layers = get_children(model)
     _ = torch.randn(1, *original_input_shape)
     for layer in layers:
+        # print(_.shape)
         config = {
             "type": layer.__class__.__name__,
             "layer": layer,

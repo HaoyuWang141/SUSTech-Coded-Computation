@@ -16,8 +16,8 @@ class BasicBlock(nn.Module):
             dilation=1,
         )
 
-        self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.relu = nn.ReLU()
+        # self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
 
     def forward(self, x):
         x = self.conv(x)
@@ -46,30 +46,37 @@ class LeNet9(BaseModel):
         input_dim = tuple(input_dim)
         num_classes = int(num_classes)
         in_channels = input_dim[0]
-        self.conv_block1 = BasicBlock(in_channels, 32)
-        self.conv_block2 = BasicBlock(32, 64)
+        self.conv_block1 = BasicBlock(in_channels, 64)
+        self.conv_block2 = BasicBlock(64, 64)
         self.conv_block3 = BasicBlock(64, 128)
-        self.conv_block4 = BasicBlock(128, 256)
-        self.conv_block5 = BasicBlock(256, 512)
+        self.conv_block4 = BasicBlock(128, 128)
+        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.conv_block5 = BasicBlock(128, 256)
+        self.conv_block6 = BasicBlock(256, 256)
         self.flatten = nn.Flatten()
         conv_output_size = self.calculate_conv_output(input_dim)
         fc_input_size = conv_output_size[0] * conv_output_size[1] * conv_output_size[2]
-        self.fc1 = nn.Sequential(nn.Linear(fc_input_size, 256), nn.ReLU())
-        self.fc2 = nn.Sequential(nn.Linear(256, 128), nn.ReLU())
-        self.fc3 = nn.Sequential(nn.Linear(128, 64), nn.ReLU())
-        self.out = nn.Linear(64, num_classes)
+        print(f"fc_input_size: {fc_input_size}")
+        self.fc1 = nn.Sequential(nn.Linear(fc_input_size, 1024), nn.ReLU())
+        self.fc2 = nn.Sequential(nn.Linear(1024, 512), nn.ReLU())
+        self.fc3 = nn.Sequential(nn.Linear(512, 128), nn.ReLU())
+        self.out = nn.Linear(128, num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.conv_block1(x)
-        print(x.shape)
+        # print(x.shape)
         x = self.conv_block2(x)
-        print(x.shape)
+        # print(x.shape)
         x = self.conv_block3(x)
-        print(x.shape)
+        # print(x.shape)
         x = self.conv_block4(x)
-        print(x.shape)
+        # print(x.shape)
+        x = self.maxpool(x)
+        # print(x.shape)
         x = self.conv_block5(x)
-        print(x.shape)
+        # print(x.shape)
+        x = self.conv_block6(x)
+        # print(x.shape)
         x = self.flatten(x)
         x = self.fc1(x)
         x = self.fc2(x)
@@ -83,7 +90,9 @@ class LeNet9(BaseModel):
             self.conv_block2,
             self.conv_block3,
             self.conv_block4,
+            self.maxpool,
             self.conv_block5,
+            self.conv_block6,
         )
 
     def get_fc_segment(self) -> nn.Sequential:
@@ -100,6 +109,9 @@ class LeNet9(BaseModel):
         channels, height, width = input_dim
         out_channels = channels
         for block in self.get_conv_segment():
+            if isinstance(block, nn.MaxPool2d):
+                height, width = height // 2, width // 2
+                continue
             for layer in block.children():
                 if isinstance(layer, nn.Conv2d):
                     out_channels = layer.out_channels
@@ -132,7 +144,7 @@ class LeNet9(BaseModel):
 
 if __name__ == "__main__":
     # Example usage
-    input_dim = (1, 32, 32)  # Example input dimensions (channels, height, width)
+    input_dim = (3, 32, 32)  # Example input dimensions (channels, height, width)
     num_classes = 10  # Example number of output classes
     model = LeNet9(input_dim, num_classes)
     # print(model)
