@@ -1,4 +1,6 @@
 results/**/*.pth
-src/**/*.pth
+src/save/*.pth
+src/encoder/**/*.pth
+src/decoder/**/*.pth
 ~$*
 $*
