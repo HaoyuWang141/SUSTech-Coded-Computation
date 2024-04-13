@@ -50,9 +50,10 @@ class LeNet9(BaseModel):
         self.conv_block2 = BasicBlock(64, 64)
         self.conv_block3 = BasicBlock(64, 128)
         self.conv_block4 = BasicBlock(128, 128)
-        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.maxpool1 = nn.MaxPool2d(kernel_size=2, stride=2)
         self.conv_block5 = BasicBlock(128, 256)
         self.conv_block6 = BasicBlock(256, 256)
+        self.maxpool2 = nn.MaxPool2d(kernel_size=2, stride=2)
         self.flatten = nn.Flatten()
         conv_output_size = self.calculate_conv_output(input_dim)
         fc_input_size = conv_output_size[0] * conv_output_size[1] * conv_output_size[2]
@@ -71,11 +72,13 @@ class LeNet9(BaseModel):
         # print(x.shape)
         x = self.conv_block4(x)
         # print(x.shape)
-        x = self.maxpool(x)
+        x = self.maxpool1(x)
         # print(x.shape)
         x = self.conv_block5(x)
         # print(x.shape)
         x = self.conv_block6(x)
+        # print(x.shape)
+        x = self.maxpool2(x)
         # print(x.shape)
         x = self.flatten(x)
         x = self.fc1(x)
@@ -90,9 +93,10 @@ class LeNet9(BaseModel):
             self.conv_block2,
             self.conv_block3,
             self.conv_block4,
-            self.maxpool,
+            self.maxpool1,
             self.conv_block5,
             self.conv_block6,
+            self.maxpool2,
         )
 
     def get_fc_segment(self) -> nn.Sequential:

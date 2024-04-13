@@ -163,6 +163,7 @@ def cal_input_shape(
     layer_configs = []
     layers = get_children(model)
     _ = torch.randn(1, *original_input_shape)
+    # print("反向推断")
     for layer in layers:
         # print(_.shape)
         config = {
@@ -258,6 +259,10 @@ def reverse_conv(
         + (kernel_size[1] // 2)
         + 1
     )
+    
+    if (padding[1] == 1 and kernel_size[1] == 3):
+        input_width_start = output_width_start
+        input_width_end = output_width_end
 
     assert input_channels == max_input_shape[0]
     if input_height > max_input_shape[1]:

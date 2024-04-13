@@ -10,7 +10,7 @@ class VGG10(BaseModel):
         input_dim = tuple(input_dim)
         num_classes = int(num_classes)
         self.conv_block1 = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, padding=0),
+            nn.Conv2d(in_channels=input_dim[0], out_channels=64, kernel_size=3, padding=0),
             nn.ReLU(),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=0),
             nn.ReLU(),
@@ -66,13 +66,13 @@ class VGG10(BaseModel):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.conv_block1(x)
-        print(x.shape)
+        # print(x.shape)
         x = self.conv_block2(x)
-        print(x.shape)
+        # print(x.shape)
         x = self.conv_block3(x)
-        print(x.shape)
+        # print(x.shape)
         x = self.conv_block4(x)
-        print(x.shape)
+        # print(x.shape)
         x = self.flatten(x)
         x = self.fc_block(x)
         # x = torch.softmax(x, dim=1)
@@ -112,11 +112,11 @@ class VGG10(BaseModel):
 
 if __name__ == "__main__":
     # Example usage
-    input_dim = (3, 28, 28)  # Example input dimensions (channels, height, width)
+    input_dim = (1, 28, 28)  # Example input dimensions (channels, height, width)
     num_classes = 10  # Example number of output classes
     model = VGG10(input_dim, num_classes)
 
-    x = torch.randn(1, 3, 28, 28)
+    x = torch.randn(1, 1, 28, 28)
     y1 = model(x)
     print(y1.shape)
 
