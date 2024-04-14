@@ -10,7 +10,7 @@ class VGG10(BaseModel):
         input_dim = tuple(input_dim)
         num_classes = int(num_classes)
         self.conv_block1 = nn.Sequential(
-            nn.Conv2d(in_channels=input_dim[0], out_channels=64, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -28,28 +28,30 @@ class VGG10(BaseModel):
             nn.ReLU(),
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
-            nn.ReLU(),
+            # nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
+            # nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
         )
         self.conv_block4 = nn.Sequential(
-            nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(),
+            # nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, padding=1),
+            # nn.ReLU(),
+            # nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
+            # nn.ReLU(),
+            # nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
+            # nn.ReLU(),
         )
         conv_output_size = self.calculate_conv_output(input_dim)
         fc_input_size = conv_output_size[0] * conv_output_size[1] * conv_output_size[2]
         print(f"fc_input_size: {fc_input_size}")
         self.flatten = nn.Flatten()
         self.fc_block = nn.Sequential(
-            nn.Linear(fc_input_size, 128),
+            nn.Dropout(0.5),
+            nn.Linear(fc_input_size, 1024),
             nn.ReLU(),
-            nn.Linear(128, 64),
+            nn.Dropout(0.5),
+            nn.Linear(1024, 512),
             nn.ReLU(),
-            nn.Linear(64, num_classes),
+            nn.Linear(512, num_classes),
         )
         self._initialize_weights()
 
