@@ -375,25 +375,27 @@ for i in range(Module):
             optimizer_encoder[i].step()
             optimizer_decoder[i].step()
 
-save_dir = f"./save/{TASK_CONFIG['TASK']}/{TASK_CONFIG['MODEL']}/{TASK_CONFIG['DATE']}/K{K}-R{R}-mlp-division/"
-encoder_path = (
-     save_dir
-     + f"encoder-task_{TASK_CONFIG['TASK']}-basemodel_{TASK_CONFIG['MODEL']}-K{K}-R{R}.pth"
- )
-decoder_path = (
-     save_dir
-     + f"decoder-task_{TASK_CONFIG['TASK']}-basemodel_{TASK_CONFIG['MODEL']}-K{K}-R{R}.pth"
- )
+save_dir = [None] * Module
+encoder_path = [None] * Module
+decoder_path = [None] * Module
+for i in range(Module):
+    save_dir[i] = f"./save/{TASK_CONFIG['TASK']}/{TASK_CONFIG['MODEL']}/{TASK_CONFIG['DATE']}/K{K}-R{R}-mlp-division-E-Dcoder-Num{i}/"
+    encoder_path[i] = (
+        save_dir[i]
+        + f"encoder-task_{TASK_CONFIG['TASK']}-basemodel_{TASK_CONFIG['MODEL']}-K{K}-R{R}.pth"
+    )
+    decoder_path[i] = (
+        save_dir[i]
+        + f"decoder-task_{TASK_CONFIG['TASK']}-basemodel_{TASK_CONFIG['MODEL']}-K{K}-R{R}.pth"
+    )
 
-print(f"save_dir: {save_dir}")
-print(f"encoder_path: {encoder_path}")
-print(f"decoder_path: {decoder_path}")
+    print(f"save_dir: {save_dir[i]}")
+    print(f"encoder_path: {encoder_path[i]}")
+    print(f"decoder_path: {decoder_path[i]}")
 
 import os
-
-
-os.makedirs(os.path.dirname(encoder_path), exist_ok=True)
-os.makedirs(os.path.dirname(decoder_path), exist_ok=True)
-
-torch.save(encoder.state_dict(), encoder_path)
-torch.save(decoder.state_dict(), decoder_path)
+for i in range(Module):
+    os.makedirs(os.path.dirname(encoder_path[i]), exist_ok=True)
+    os.makedirs(os.path.dirname(decoder_path[i]), exist_ok=True)
+    torch.save(encoder[i].state_dict(), encoder_path[i])
+    torch.save(decoder[i].state_dict(), decoder_path[i])
