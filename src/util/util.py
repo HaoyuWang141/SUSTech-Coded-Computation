@@ -169,7 +169,7 @@ def cal_input_shape(
         config = {
             "type": layer.__class__.__name__,
             "layer": layer,
-            "input_shape": tuple(_.shape[1:]),
+            "input_shape": tuple(_.shape[1:]), # input_shape 用来从output_shape反推input_shape的时候使用 防止因为padding而导致的下标越界（truncate）
         }
         _ = layer(_)
         config["output_shape"] = tuple(_.shape[1:])
@@ -211,7 +211,7 @@ def reverse_module(
         # print(input_range)
         if isinstance(layer, nn.Conv2d):
             input_range = reverse_conv(layer, max_input_shape, *input_range)
-        if isinstance(layer, nn.MaxPool2d):
+        elif isinstance(layer, nn.MaxPool2d):
             input_range = reverse_pool(layer, max_input_shape, *input_range)
         # print(input_range)
         # print("-" * 50)
@@ -259,11 +259,10 @@ def reverse_conv(
         + (kernel_size[1] // 2)
         + 1
     )
-    
+    #TODO: 现在的处理方式较为取巧，只适用于stride=1, kernel_size=3, padding=1的情况 之后可以考虑更加通用的方法
     if (padding[1] == 1 and kernel_size[1] == 3):
         input_width_start = output_width_start
         input_width_end = output_width_end
-
     assert input_channels == max_input_shape[0]
     if input_height > max_input_shape[1]:
         input_height = max_input_shape[1]

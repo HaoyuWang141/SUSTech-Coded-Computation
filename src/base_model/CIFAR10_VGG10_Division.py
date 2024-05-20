@@ -73,23 +73,31 @@ class VGG10(BaseModel):
         return x
 
     def get_conv_segment(self, index: int) -> nn.Sequential:
+        block = [None]
         if index == 1:
-            return nn.Sequential(*self.conv_block1)
+            block = self.conv_block1
+            block = list(block.children())  # Convert to list
+            block.pop()  # Remove the last layer
+            block = nn.Sequential(*block)  # Convert back to nn.Sequential
         elif index == 2:
-            return nn.Sequential(*self.conv_block2)
+            block = self.conv_block2
+            block = list(block.children())
+            block.pop()
+            block = nn.Sequential(*block)
         elif index == 3:
-            return nn.Sequential(*self.conv_block3)
-        elif index == 4:
-            return nn.Sequential(*self.conv_block4)
-        else:
-            raise ValueError("Invalid index. Index should be in {1, 2, 3, 4}.")
+            block = self.conv_block3
+            block = list(block.children())
+            block.pop()
+            block = nn.Sequential(*block)
+        return block
+    
 
     def get_flatten(self) -> nn.Sequential:
         return self.flatten
     
     def get_fc_segment(self) -> nn.Sequential:
         return self.fc_block
-
+    
     def calculate_conv_output(self, input_dim: tuple[int]) -> tuple[int, int, int]:
         # Assuming input_dim is a tuple (channels, height, width)
         channels, height, width = input_dim
@@ -106,16 +114,13 @@ class VGG10(BaseModel):
                 (size[1] - kernel_size + 2 * padding) // stride + 1,
             )
 
-        for i in range(4) :
+        for i in range(3) :
             for layer in self.get_conv_segment(index = i + 1):
-                #print(layer)
-                #print(f"channels: {channels}, height: {height}, width: {width}")
                 if isinstance(layer, nn.Conv2d):
                     padding = layer.padding[0]
                     channels = layer.out_channels
                     height, width = conv2d_out_size((height, width), padding=padding) 
-                elif isinstance(layer, nn.MaxPool2d):
-                    height, width = maxpool2d_out_size((height, width))
+            height, width = maxpool2d_out_size((height, width))
                 
         return channels, height, width
 
