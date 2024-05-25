@@ -1,3 +1,74 @@
+import torch
+from dataset.image_dataset import ImageDataset
+from util.split_data import split_vector
+
+def lose_something(output_list, lose_num):
+    if lose_num == 0:
+        return output_list
+    
+    lose_index = torch.randperm(len(output_list))[:lose_num]
+    losed_output_list = []
+
+    for i in range(len(output_list)):
+
+        if i in lose_index:
+
+            losed_output_list.append(torch.zeros_like(output_list[i]))
+        else:
+
+            losed_output_list.append(output_list[i])
+    return losed_output_list
+
+def evaluation(loader, loss_num):
+    original_correct = 0
+    merge_correct = 0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            output = images
+            for i in range(Module):
+                output = conv_segment[i](output)
+                output = maxpool_segment(output)
+            output = output.view(output.size(0), -1)
+            output = fc_segment(output)
+            _, predicted = torch.max(output.data, 1)
+            merge_correct += (predicted == labels).sum().item()
+
+            #Todo modify this part
+            last_output = images
+            for j in range(Module):
+                images_list = []
+                for _1, _2, start, end in split_data_range[j]:
+                    images_list.append(last_output[:, :, :, start:end].clone())
+                imageDataset_list = [
+                    ImageDataset(images) for images in images_list + encoder[j](images_list[j])
+                ]
+                output_list = []
+                for i in range(N):
+                    imageDataset = imageDataset_list[i]
+                    output = conv_segment[j](imageDataset.images)
+                    output_list.append(output)
+                losed_output_list = lose_something(output_list, loss_num)
+                decoded_output_list = decoder[j](losed_output_list)
+                output = torch.cat(decoded_output_list, dim=3)
+                output = maxpool_segment(output)
+                last_output = output
+                
+            output = output.view(output.size(0), -1)
+            _, predicted = torch.max(fc_segment(output).data, 1)
+            correct += (predicted == labels).sum().item()
+            total += labels.size(0)
+
+    print(f"样本总数: {total}")
+    print(
+        f"原始模型(conv+fc) -> 预测正确数: {merge_correct}, 预测准确率: {(100 * merge_correct / total):.2f}%"
+    )
+    print(
+        f"使用Encoder和Decoder -> 预测正确数: {correct}, 预测准确率: {(100 * correct / total):.2f}%"
+    )
 import os
 
 print("original dir: ", os.getcwd())
@@ -100,6 +171,7 @@ else:
 
 # 读取模型
 import torch.nn as nn
+
 base_model_path = (
     f"./base_model/{TASK_CONFIG['MODEL']}/{TASK_CONFIG['TASK']}/model.pth"
 )
@@ -229,152 +301,8 @@ for i in range(Module):
     split_data_shape[i] = split_data_shapes[i][0]
     print(f"choose the first one as the split_data_shape: {split_data_shape[i]}")
 
-for i in range(Module):
-    print(f"CASE: {i}")
-    if i == 0:
-        current_original_data_shape = original_data_shape
-    else:
-        current_original_data_shape = shape_after_maxpool_segment[i - 1][1:]
-    x = torch.randn(1, *current_original_data_shape).to(device)
-    conv_segment[i].to(device)
-    y = conv_segment[i](x)
-    y = maxpool_segment(y)
-    print(f"y.shape: {y.shape}")
-
-    x_split = [x[:, :, :, _[2]:_[3]] for _ in split_data_range[i]]
-    y_split = [conv_segment[i](_x) for _x in x_split]
-    y_split = [maxpool_segment(_y) for _y in y_split]
-    print(f"y_split.shape: {[tuple(_y.shape) for _y in y_split]}")
-    print(f"y_split.shape: {[tuple(_y.shape) for _y in y_split]}")
-
-    y_hat = torch.cat(y_split, dim=3)
-    print(f"y_hat.shape: {y_hat.shape}")
-
-    # |A-B| <= atol + rtol * |B|
-    print(f"y和y_hat是否相等: {torch.allclose(y_hat, y, rtol=1e-08, atol=1e-05)}")
-
-    diff = torch.abs(y_hat - y)
-    epsilon = 0.0001
-    print(f"y和y_hat是否相等: {torch.all(diff <= epsilon)}")
-
 from encoder.mlp_encoder_division import MLPEncoder
 from decoder.mlp_decoder_division import MLPDecoder
-
-
-encoder = [None] * Module
-decoder = [None] * Module
-
-for i in range(Module):
-    print(f"CASE: {i}")
-    print(f"split_data_shape: {split_data_shape[i]}")
-    print(f"split_conv_output_shape: {split_conv_output_shape[i]}")
-    encoder[i] = MLPEncoder(num_in=K, num_out=R, in_dim=split_data_shape[i])
-    decoder[i] = MLPDecoder(num_in=N, num_out=K, in_dim=split_conv_output_shape[i])
-
-def getModelSize(model):
-    param_size = 0
-    param_sum = 0
-    for param in model.parameters():
-        param_size += param.nelement() * param.element_size()
-        param_sum += param.nelement()
-    buffer_size = 0
-    buffer_sum = 0
-    for buffer in model.buffers():
-        buffer_size += buffer.nelement() * buffer.element_size()
-        buffer_sum += buffer.nelement()
-    all_size = (param_size + buffer_size) / 1024
-    print("模型总大小为：{:.3f}KB".format(all_size))
-    return (param_size, param_sum, buffer_size, buffer_sum, all_size)
-
-for i in range(Module):
-    print(f"CASE: {i}")
-    getModelSize(encoder[i])
-    getModelSize(decoder[i])
-
-epoch_num = 10
-print(f"epoch_num: {epoch_num}")
-
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-
-print(f"Train dataset: {len(train_dataset)}")
-print("image size: ", train_dataset[0][0].size())
-
-# 定义损失函数
-criterion = nn.MSELoss()
-criterion2 = nn.CrossEntropyLoss()
-
-optimizer_encoder = [None] * Module
-optimizer_decoder = [None] * Module
-for i in range(Module):
-    print(f"CASE: {i}")
-    optimizer_encoder[i] = optim.Adam(encoder[i].parameters(), lr=1e-4, weight_decay=1e-6)
-    optimizer_decoder[i] = optim.Adam(decoder[i].parameters(), lr=1e-4, weight_decay=1e-6)
-
-    model.to(device)
-    conv_segment[i].to(device)
-    fc_segment.to(device)
-    encoder[i].to(device)
-    decoder[i].to(device)
-
-    model.eval()
-    conv_segment[i].eval()
-    fc_segment.eval()
-    encoder[i].train()
-    decoder[i].train()
-
-    model.eval()
-    for m in model.modules():
-        if isinstance(m, nn.BatchNorm2d):
-            m.track_running_stats = False
-
-    loss_list = [[] for _ in range(epoch_num)]
-
-    for epoch in range(epoch_num):
-        correct = 0
-        correct_truth = 0
-        total = 0
-        for images, labels in train_loader:
-            images = images.to(device)
-            labels = labels.to(device)
-
-            # 把整一张完整的图片输入到模型中，得到ground_truth
-            former = images
-            for j in range(i):
-                former = conv_segment[j](former)
-                former = maxpool_segment(former)
-            ground_truth = conv_segment[i](former)
-            ground_truth = ground_truth.view(ground_truth.size(0), -1) # 将数据展平
-
-            images_list = []
-            for _1, _2, start, end in split_data_range[i]:
-                images_list.append(former[:, :, :, start:end].clone())
-
-            # forward
-            images_list += encoder[i](images_list)
-            output_list = []
-            for j in range(N):
-                output = conv_segment[i](images_list[j])
-                output_list.append(output)
-            # losed_output_list = lose_something(output_list, self.lose_device_index)
-            decoded_output_list = decoder[i](output_list) 
-            output = torch.cat(decoded_output_list, dim=3) # 将数据拼接
-            output = output.view(output.size(0), -1) # 将数据展平
-            
-            loss = criterion(output, ground_truth)
-            # loss = criterion2(fc_segment(output), fc_segment(ground_truth))
-
-            loss_list[epoch].append(loss.item())
-
-            # backward
-            optimizer_encoder[i].zero_grad()
-            optimizer_decoder[i].zero_grad()
-            loss.backward()
-            optimizer_encoder[i].step()
-            optimizer_decoder[i].step()
-
 save_dir = [None] * Module
 encoder_path = [None] * Module
 decoder_path = [None] * Module
@@ -388,14 +316,35 @@ for i in range(Module):
         save_dir[i]
         + f"decoder-task_{TASK_CONFIG['TASK']}-basemodel_{TASK_CONFIG['MODEL']}-K{K}-R{R}.pth"
     )
-
-    print(f"save_dir: {save_dir[i]}")
-    print(f"encoder_path: {encoder_path[i]}")
-    print(f"decoder_path: {decoder_path[i]}")
-
-import os
+fc_segment.to(device)
+model.to(device)
+encoder = [None] * Module
+decoder = [None] * Module
 for i in range(Module):
-    os.makedirs(os.path.dirname(encoder_path[i]), exist_ok=True)
-    os.makedirs(os.path.dirname(decoder_path[i]), exist_ok=True)
-    torch.save(encoder[i].state_dict(), encoder_path[i])
-    torch.save(decoder[i].state_dict(), decoder_path[i])
+    encoder[i] = MLPEncoder(num_in=K, num_out=R, in_dim=split_data_shape[i])
+    decoder[i] = MLPDecoder(num_in=N, num_out=K, in_dim=split_conv_output_shape[i])
+
+    encoder[i].load_state_dict(torch.load(encoder_path[i]))  # 加载模型
+    decoder[i].load_state_dict(torch.load(decoder_path[i]))  # 加载模型
+
+
+for i in range(Module):
+    conv_segment[i].to(device)
+    encoder[i].to(device)
+    decoder[i].to(device)
+
+fc_segment.eval()
+model.eval()
+for i in range(Module):
+    conv_segment[i].eval()
+    encoder[i].eval()
+    decoder[i].eval()
+
+for i in range(N + 1):
+    print(f"loss_num: {i}")
+    evaluation(train_loader, i)
+
+for i in range(N + 1):
+    print(f"loss_num: {i}")
+    evaluation(test_loader, i)
+
