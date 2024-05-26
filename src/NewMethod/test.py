@@ -197,6 +197,7 @@ split_conv_output_shape = [None] * Module #经过了maxpool之后下一个encode
 split_data_range = [None] * Module
 split_data_shape = [None] * Module
 split_data_shapes = [None] * Module
+number_of_conv = 2
 for i in range(Module):
     print(f"CASE: {i}")
     print(f"shape_after_conv_segment: {shape_after_conv_segment[i]}")
@@ -224,40 +225,15 @@ for i in range(Module):
         original_output_shape=shape_after_conv_segment[i][1:], #通过输出的大小回推输入的大小(只包括conv不包括maxpool)
         split_num=K,
     )
+    for j in range(K):
+        split_data_range[i][j] = (split_data_range[i][j][0], split_data_range[i][j][1], max(split_data_range[i][j][2] - number_of_conv, 0), 
+                           min(split_data_range[i][j][3] + number_of_conv, current_original_data_shape[2]))
     print(f"split_data_range: {split_data_range[i]}")
 
-    split_data_shapes[i] = [(tmp[0], tmp[1], tmp[3] - tmp[2],) for tmp in split_data_range[i]]
+    split_data_shapes[i] = [(tmp[0], tmp[1], tmp[3] - tmp[2] + number_of_conv,) for tmp in split_data_range[i]]
     print(f"split_data_shapes: {split_data_shapes[i]}")
     split_data_shape[i] = split_data_shapes[i][0]
     print(f"choose the first one as the split_data_shape: {split_data_shape[i]}")
-
-    
-for i in range(Module):
-    print(f"CASE: {i}")
-    if i == 0:
-        current_original_data_shape = original_data_shape
-    else:
-        current_original_data_shape = shape_after_maxpool_segment[i - 1][1:]
-    x = torch.randn(1, *current_original_data_shape).to(device)
-    print(f"x.shape: {x.shape}")
-    conv_segment[i].to(device)
-    y = conv_segment[i](x)
-    print(f"y.shape: {y.shape}")
-
-    x_split = [x[:, :, :, _[2]:_[3]] for _ in split_data_range[i]]
-    print(f"x_split.shape: {[tuple(_x.shape) for _x in x_split]}")
-    y_split = [conv_segment[i](_x) for _x in x_split]
-    print(f"y_split.shape: {[tuple(_y.shape) for _y in y_split]}")
-
-    y_hat = torch.cat(y_split, dim=3)
-    print(f"y_hat.shape: {y_hat.shape}")
-
-    # |A-B| <= atol + rtol * |B|
-    print(f"y和y_hat是否相等: {torch.allclose(y_hat, y, rtol=1e-08, atol=1e-05)}")
-
-    diff = torch.abs(y_hat - y)
-    epsilon = 0.0001
-    print(f"y和y_hat是否相等: {torch.all(diff <= epsilon)}")
 
 from encoder.mlp_encoder_division import MLPEncoder
 from decoder.mlp_decoder_division import MLPDecoder
@@ -272,6 +248,26 @@ for i in range(Module):
     print(f"split_conv_output_shape: {split_conv_output_shape[i]}")
     encoder[i] = MLPEncoder(num_in=K, num_out=R, in_dim=split_data_shape[i])
     decoder[i] = MLPDecoder(num_in=N, num_out=K, in_dim=split_conv_output_shape[i])
+
+def getModelSize(model):
+    param_size = 0
+    param_sum = 0
+    for param in model.parameters():
+        param_size += param.nelement() * param.element_size()
+        param_sum += param.nelement()
+    buffer_size = 0
+    buffer_sum = 0
+    for buffer in model.buffers():
+        buffer_size += buffer.nelement() * buffer.element_size()
+        buffer_sum += buffer.nelement()
+    all_size = (param_size + buffer_size) / 1024
+    print("模型总大小为：{:.3f}KB".format(all_size))
+    return (param_size, param_sum, buffer_size, buffer_sum, all_size)
+
+for i in range(Module):
+    print(f"CASE: {i}")
+    getModelSize(encoder[i])
+    getModelSize(decoder[i])
 
 epoch_num = 10
 print(f"epoch_num: {epoch_num}")
@@ -295,7 +291,8 @@ model.to(device)
 fc_segment.to(device)
 fc_segment.eval()
 model.eval()
-for i in range(Module):
+start_time = datetime.datetime.now()
+for i in range(2,3):
     print(f"CASE: {i}")
     optimizer_encoder[i] = optim.Adam(encoder[i].parameters(), lr=1e-4, weight_decay=1e-6)
     optimizer_decoder[i] = optim.Adam(decoder[i].parameters(), lr=1e-4, weight_decay=1e-6)
@@ -332,21 +329,26 @@ for i in range(Module):
                 former = conv_segment[j](former)
                 former = maxpool_segment(former)
             ground_truth = conv_segment[i](former)
+            ground_truth = maxpool_segment(ground_truth)
             ground_truth = ground_truth.view(ground_truth.size(0), -1) # 将数据展平
-
             images_list = []
             for _1, _2, start, end in split_data_range[i]:
                 images_list.append(former[:, :, :, start:end].clone())
-
+            pad1 = (number_of_conv, 0, 0, 0, 0, 0, 0, 0)
+            images_list[0] = F.pad(images_list[0], pad1, "constant", value=0)
+            pad2 = (0, number_of_conv, 0, 0, 0, 0, 0, 0)
+            images_list[-1] = F.pad(images_list[-1], pad2, "constant", value=0)
             # forward
             images_list += encoder[i](images_list)
             output_list = []
             for j in range(N):
                 output = conv_segment[i](images_list[j])
+                output = output[:, :, :, number_of_conv:-number_of_conv]
                 output_list.append(output)
             # losed_output_list = lose_something(output_list, self.lose_device_index)
             decoded_output_list = decoder[i](output_list) 
             output = torch.cat(decoded_output_list, dim=3) # 将数据拼接
+            output = maxpool_segment(output)
             output = output.view(output.size(0), -1) # 将数据展平
             
             loss = criterion(output, ground_truth)
@@ -360,10 +362,18 @@ for i in range(Module):
             loss.backward()
             optimizer_encoder[i].step()
             optimizer_decoder[i].step()
-
+            _, predicted_truth = torch.max(fc_segment(ground_truth.data), 1)
+            _, predicted = torch.max(fc_segment(output).data, 1)
+            correct += (predicted == labels).sum().item()
+            correct_truth += (predicted_truth == labels).sum().item()
+            total += labels.size(0)
             train_loader_tqdm.set_postfix(loss=loss.item())
-        print(f"Epoch: {epoch+1}, Loss: {loss.item()}")
 
+        print(f"Epoch: {epoch+1}, Loss: {loss.item()}")
+        print(f"Train Accuracy: {100 * correct / total}%")
+        print(f"Original Accuracy: {100 * correct_truth / total}%")
+end_time = datetime.datetime.now()
+print(f"Time cost for Training: {end_time - start_time}")
 def lose_something(output_list, lose_num):
     if lose_num == 0:
         return output_list
@@ -419,10 +429,17 @@ def evaluation(loader, loss_num):
 
             #Todo modify this part
             last_output = images
-            for j in range(Module):
+            for i in range(Module - 1):
+                last_output = conv_segment[i](last_output)
+                last_output = maxpool_segment(last_output)
+            for j in range(Module - 1, Module):
                 images_list = []
                 for _1, _2, start, end in split_data_range[j]:
                     images_list.append(last_output[:, :, :, start:end].clone())
+                pad1 = (number_of_conv, 0, 0, 0, 0, 0, 0, 0)
+                images_list[0] = F.pad(images_list[0], pad1, "constant", value=0)
+                pad2 = (0, number_of_conv, 0, 0, 0, 0, 0, 0)
+                images_list[-1] = F.pad(images_list[-1], pad2, "constant", value=0)
                 imageDataset_list = [
                     ImageDataset(images) for images in images_list + encoder[j](images_list)
                 ]
@@ -430,6 +447,7 @@ def evaluation(loader, loss_num):
                 for i in range(N):
                     imageDataset = imageDataset_list[i]
                     output = conv_segment[j](imageDataset.images)
+                    output = output[:, :, :, number_of_conv:-number_of_conv]
                     output_list.append(output)
                 losed_output_list = lose_something(output_list, loss_num)
                 decoded_output_list = decoder[j](losed_output_list)
@@ -437,8 +455,8 @@ def evaluation(loader, loss_num):
                 output = maxpool_segment(output)
                 last_output = output
                 
-            output = output.view(output.size(0), -1)
-            _, predicted = torch.max(fc_segment(output).data, 1)
+            last_output = output.view(output.size(0), -1)
+            _, predicted = torch.max(fc_segment(last_output).data, 1)
             correct += (predicted == labels).sum().item()
             total += labels.size(0)
 
@@ -450,7 +468,8 @@ def evaluation(loader, loss_num):
         f"使用Encoder和Decoder -> 预测正确数: {correct}, 预测准确率: {(100 * correct / total):.2f}%"
     )
 
-
+# 训练集
+start_time = datetime.datetime.now()
 for i in range(N + 1):
     print(f"loss_num: {i}")
     evaluation(train_loader, i)
@@ -459,3 +478,5 @@ for i in range(N + 1):
 for i in range(N + 1):
     print(f"loss_num: {i}")
     evaluation(test_loader, i)
+end_time = datetime.datetime.now()
+print(f"Time cost for Evaluation: {end_time - start_time}")
