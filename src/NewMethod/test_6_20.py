@@ -68,7 +68,6 @@ print(f"N: {N}")
 print(f"data_shape: {original_data_shape}")
 print(f"num_classes: {num_classes}")
 
-# 定义 base model
 import torch
 
 from base_model.MNIST_VGG10 import VGG10 as MNIST_VGG10
@@ -122,37 +121,6 @@ model.to(device)
 model.eval()
 
 print("Model is ready!")
-
-# 测试循环
-model.eval()  # 设置模型为评估模式
-
-correct = 0
-total = 0
-with torch.no_grad():  # 在评估过程中不计算梯度
-    for data, target in train_loader:
-        # 将数据移动到设备上
-        data, target = data.to(device), target.to(device)
-        output = model.forward(data, [conv_segment[0], maxpool_segment, conv_segment[1], maxpool_segment, conv_segment[2], maxpool_segment, 
-                                      fc_flatten, fc_segment])
-        _, predicted = torch.max(output.data, 1)
-        total += target.size(0)
-        correct += (predicted == target).sum().item()
-
-print(f"训练集-> 总量: {total}, 正确数量: {correct}, 准确率: {100 * correct / total}%")
-
-correct = 0
-total = 0
-with torch.no_grad():  # 在评估过程中不计算梯度
-    for data, target in test_loader:
-        # 将数据移动到设备上
-        data, target = data.to(device), target.to(device)
-        output = model.forward(data, [conv_segment[0], maxpool_segment, conv_segment[1], maxpool_segment, conv_segment[2], maxpool_segment, 
-                                      fc_flatten, fc_segment])
-        _, predicted = torch.max(output.data, 1)
-        total += target.size(0)
-        correct += (predicted == target).sum().item()
-
-print(f"测试集-> 总量: {total}, 正确数量: {correct}, 准确率: {100 * correct / total}%")
 
 x = torch.randn(1, *original_data_shape).to(device) # 生成一个随机输入
 model.to(device) 
@@ -235,6 +203,52 @@ for i in range(Module):
     split_data_shape[i] = split_data_shapes[i][0]
     print(f"choose the first one as the split_data_shape: {split_data_shape[i]}")
 
+import torch.nn.functional as F
+x = torch.randn(1, *original_data_shape).to(device)
+print(f"x.shape: {x.shape}")
+y = x
+last = x
+for i in range(Module):
+    conv_segment[i].to(device)
+    y = conv_segment[i](y)
+    print(f"CASE: {i} after conv y.shape: {y.shape}")
+    y = maxpool_segment(y)
+    print(f"CASE: {i} after maxpool y.shape: {y.shape}")
+    #units = [torch.nn.Sequential(*list(conv_segment[i].children())[j:j+2]) for j in range(0, len(conv_segment[i]), 2)]
+    x_split = [None] * K
+    y_split = [last[:, :, :, _[2]:_[3]] for _ in split_data_range[i]]
+    for layer in conv_segment[i]:
+        if isinstance(layer, torch.nn.Conv2d):
+            x_split = y_split
+            pad1 = (1, 0, 0, 0, 0, 0, 0, 0)
+            x_split[0] = F.pad(x_split[0], pad1, "constant", value=0)
+            pad2 = (0, 1, 0, 0, 0, 0, 0, 0)
+            x_split[-1] = F.pad(x_split[-1], pad2, "constant", value=0)
+            y_split = [layer(_x) for _x in x_split]
+            for j in range(K):
+                y_split[j] = y_split[j][:, :, :, 1:-1]
+        else:
+            for j in range(K):
+                y_split[j] = layer(y_split[j])
+    last = torch.cat(y_split, dim=3)      
+    last = maxpool_segment(last)
+    y_hat = last
+    output1 = y[:, :, :, :]
+    output2 = y_hat[:, :, :, :]
+    print(f"y和y_hat是否相等: {torch.allclose(output1, output2, rtol=1e-08, atol=1e-05)}")
+
+    diff = torch.abs(output1 - output2)
+    epsilon = 0.0001
+    print(f"y和y_hat是否相等: {torch.all(diff <= epsilon)}")
+
+    #for j in range(y.shape[2]):
+        #for k in range(0, 1):
+    #    k = 0
+    #    print(f"y[{j}][{k}]: {y[0, 0, j, k]} y_hat[{j}][{k}]: {y_hat[0, 0, j, k]}")
+    #if (i == 0):
+    #    outt = diff[0][1][:][:]
+    #    print(outt)
+
 from encoder.mlp_encoder_division import MLPEncoder
 from decoder.mlp_decoder_division import MLPDecoder
 
@@ -292,7 +306,7 @@ fc_segment.to(device)
 fc_segment.eval()
 model.eval()
 start_time = datetime.datetime.now()
-for i in range(1,3):
+for i in range(2,3):
     print(f"CASE: {i}")
     optimizer_encoder[i] = optim.Adam(encoder[i].parameters(), lr=1e-4, weight_decay=1e-6)
     optimizer_decoder[i] = optim.Adam(decoder[i].parameters(), lr=1e-4, weight_decay=1e-6)
@@ -325,25 +339,40 @@ for i in range(1,3):
 
             # 把整一张完整的图片输入到模型中，得到ground_truth
             former = images
-            for j in range(i):
+            for j in range(i): # TODO 可能需要修改:用之前的e+d得到的结果作为输入
                 former = conv_segment[j](former)
                 former = maxpool_segment(former)
             ground_truth = conv_segment[i](former)
             ground_truth = maxpool_segment(ground_truth)
             ground_truth = ground_truth.view(ground_truth.size(0), -1) # 将数据展平
-            images_list = []
+            images_list1 = []
+            images_list2 = []
             for _1, _2, start, end in split_data_range[i]:
-                images_list.append(former[:, :, :, start:end].clone())
+                images_list1.append(former[:, :, :, start:end].clone())
+                images_list2.append(former[:, :, :, start:end].clone())
             pad1 = (number_of_conv, 0, 0, 0, 0, 0, 0, 0)
-            images_list[0] = F.pad(images_list[0], pad1, "constant", value=0)
+            images_list1[0] = F.pad(images_list1[0], pad1, "constant", value=0)
             pad2 = (0, number_of_conv, 0, 0, 0, 0, 0, 0)
-            images_list[-1] = F.pad(images_list[-1], pad2, "constant", value=0)
+            images_list1[-1] = F.pad(images_list1[-1], pad2, "constant", value=0)
             # forward
-            images_list += encoder[i](images_list)
+            images_list2 += encoder[i](images_list1)
             output_list = []
             for j in range(N):
-                output = conv_segment[i](images_list[j])
-                output = output[:, :, :, number_of_conv:-number_of_conv]
+                output = images_list2[j]
+                for layer in conv_segment[i]:
+                    if isinstance(layer, torch.nn.Conv2d):
+                        if j == 0:
+                            pad = (1, 0, 0, 0, 0, 0, 0, 0)
+                            output = F.pad(output, pad, "constant", value=0)
+                        elif j == K - 1:
+                            pad = (0, 1, 0, 0, 0, 0, 0, 0)
+                            output = F.pad(output, pad, "constant", value=0)
+
+                        output = layer(output)
+                        output = output[:, :, :, 1:-1]
+                    else: 
+                        output = layer(output)
+
                 output_list.append(output)
             # losed_output_list = lose_something(output_list, self.lose_device_index)
             decoded_output_list = decoder[i](output_list) 
@@ -403,7 +432,7 @@ for i in range(Module):
 
 def evaluation(loader, loss_num):
     original_correct = 0
-    merge_correct = 0
+    merged_correct = 0
     correct = 0
     total = 0
     with torch.no_grad():
@@ -417,30 +446,68 @@ def evaluation(loader, loss_num):
             output = output.view(output.size(0), -1)
             output = fc_segment(output)
             _, predicted = torch.max(output.data, 1)
-            merge_correct += (predicted == labels).sum().item()
+            original_correct += (predicted == labels).sum().item() # 没有分布式也没有encoder和decoder的准确率
+
+            last = images 
+            for i in range(Module):
+                x_split = [None] * K
+                y_split = [last[:, :, :, _[2]:_[3]] for _ in split_data_range[i]]
+                for layer in conv_segment[i]:
+                    if isinstance(layer, torch.nn.Conv2d):
+                        x_split = y_split
+                        pad1 = (1, 0, 0, 0, 0, 0, 0, 0)
+                        x_split[0] = F.pad(x_split[0], pad1, "constant", value=0)
+                        pad2 = (0, 1, 0, 0, 0, 0, 0, 0)
+                        x_split[-1] = F.pad(x_split[-1], pad2, "constant", value=0)
+                        y_split = [layer(_x) for _x in x_split]
+                        for j in range(K):
+                            y_split[j] = y_split[j][:, :, :, 1:-1]
+                    else:
+                        for j in range(K):
+                            y_split[j] = layer(y_split[j])
+
+                last = torch.cat(y_split, dim=3)
+                last = maxpool_segment(last)
+
+            last = last.view(last.size(0), -1)
+            last = fc_segment(last)
+            _, predicted = torch.max(last.data, 1)
+            merged_correct += (predicted == labels).sum().item() # 有分布式但是没有encoder和decoder的准确率
 
             #Todo modify this part
             last_output = images
-            for i in range(Module - 2):
+            for i in range(Module - 1):
                 last_output = conv_segment[i](last_output)
                 last_output = maxpool_segment(last_output)
-            for j in range(Module - 2, Module):
-                images_list = []
+            for j in range(Module - 1, Module):
+                images_list1 = []
+                images_list2 = []
                 for _1, _2, start, end in split_data_range[j]:
-                    images_list.append(last_output[:, :, :, start:end].clone())
+                    images_list1.append(last_output[:, :, :, start:end].clone())
+                    images_list2.append(last_output[:, :, :, start:end].clone())
                 pad1 = (number_of_conv, 0, 0, 0, 0, 0, 0, 0)
-                images_list[0] = F.pad(images_list[0], pad1, "constant", value=0)
+                images_list1[0] = F.pad(images_list1[0], pad1, "constant", value=0)
                 pad2 = (0, number_of_conv, 0, 0, 0, 0, 0, 0)
-                images_list[-1] = F.pad(images_list[-1], pad2, "constant", value=0)
-                imageDataset_list = [
-                    ImageDataset(images) for images in images_list + encoder[j](images_list)
-                ]
+                images_list1[-1] = F.pad(images_list1[-1], pad2, "constant", value=0)
+                images_list2 += encoder[j](images_list1)
                 output_list = []
                 for i in range(N):
-                    imageDataset = imageDataset_list[i]
-                    output = conv_segment[j](imageDataset.images)
-                    output = output[:, :, :, number_of_conv:-number_of_conv]
+                    output = images_list2[i]
+                    for layer in conv_segment[j]:
+                        if isinstance(layer, torch.nn.Conv2d):
+                            if i == 0:
+                                pad = (1, 0, 0, 0, 0, 0, 0, 0)
+                                output = F.pad(output, pad, "constant", value=0)
+                            elif i == K - 1:
+                                pad = (0, 1, 0, 0, 0, 0, 0, 0)
+                                output = F.pad(output, pad, "constant", value=0)
+                            output = layer(output)
+                            output = output[:, :, :, 1:-1]
+                        else:
+                            output = layer(output)
+
                     output_list.append(output)
+                
                 losed_output_list = lose_something(output_list, loss_num)
                 decoded_output_list = decoder[j](losed_output_list)
                 output = torch.cat(decoded_output_list, dim=3)
@@ -454,11 +521,16 @@ def evaluation(loader, loss_num):
 
     print(f"样本总数: {total}")
     print(
-        f"原始模型(conv+fc) -> 预测正确数: {merge_correct}, 预测准确率: {(100 * merge_correct / total):.2f}%"
+        f"原始模型(conv+fc) -> 预测正确数: {original_correct}, 预测准确率: {(100 * original_correct / total):.2f}%"
+    )
+    print(
+        f"分布式模型(conv+fc) -> 预测正确数: {merged_correct}, 预测准确率: {(100 * merged_correct / total):.2f}%"
     )
     print(
         f"使用Encoder和Decoder -> 预测正确数: {correct}, 预测准确率: {(100 * correct / total):.2f}%"
     )
+
+# 训练集
 
 # 训练集
 start_time = datetime.datetime.now()
