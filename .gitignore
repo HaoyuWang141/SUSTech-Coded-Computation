@@ -7,3 +7,4 @@ $*
 
 ### macOS ###
 .DS_Store
+src/base_model/VGG16/IMAGENET10/model.pth
