@@ -81,6 +81,7 @@ class VGG16(BaseModel):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         for i in range(5):
             x = self.get_conv_segment(index = i + 1)(x)
+            x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
         x = self.get_flatten()(x)
         x = self.get_fc_segment()(x)
         return x
