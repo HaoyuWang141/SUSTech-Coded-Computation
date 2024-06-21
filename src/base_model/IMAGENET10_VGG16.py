@@ -5,9 +5,9 @@ import torch.nn.init as init
 from typing import List
 
 
-class VGG10(BaseModel):
+class VGG16(BaseModel):
     def __init__(self, input_dim: tuple[int], num_classes: int) -> None:
-        super(VGG10, self).__init__()
+        super(VGG16, self).__init__()
         input_dim = tuple(input_dim)
         num_classes = int(num_classes)
         self.conv_block1 = nn.Sequential(
@@ -47,10 +47,11 @@ class VGG10(BaseModel):
             nn.ReLU(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=0),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.MaxPool2d(kernel_size=2, stride=2)
         )
+        # 上面分布式 下面单设备
         conv_output_size = self.calculate_conv_output(input_dim)
         print(f"conv_output_size: {conv_output_size}")
         fc_input_size = conv_output_size[0] * conv_output_size[1] * conv_output_size[2]
@@ -77,9 +78,11 @@ class VGG10(BaseModel):
                 init.kaiming_normal_(m.weight)
                 init.constant_(m.bias, 0)
 
-    def forward(self, x: torch.Tensor, models: List[nn.Module]) -> torch.Tensor:
-        for model in models:
-            x = model(x)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        for i in range(5):
+            x = self.get_conv_segment(index = i + 1)(x)
+        x = self.get_flatten()(x)
+        x = self.get_fc_segment()(x)
         return x
 
     def get_conv_segment(self, index: int) -> nn.Sequential:
