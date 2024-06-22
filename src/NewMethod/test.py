@@ -44,8 +44,8 @@ test_dataset = datasets.ImageFolder(
 )
 
 # 创建DataLoader
-train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
 
 print("Data is ready!")
 print(f"当前任务为 {TASK_CONFIG['TASK']}")
@@ -263,7 +263,7 @@ def lose_something(output_list, lose_num):
             losed_output_list.append(output_list[i])
     return losed_output_list
 
-epoch_num = 10
+epoch_num = 3
 print(f"epoch_num: {epoch_num}")
 
 import torch
@@ -287,6 +287,12 @@ fc_segment.eval()
 model.eval()
 start_time = datetime.datetime.now()
 def calc_result_endecoder(former, conv_segment, split_data_range, encoder, decoder, loss_num = 0):
+    #print(f"former = {former.shape}")
+    #print(f"conv_segment = {conv_segment}")
+    #print(f"split_data_range = {split_data_range}")
+    #print(f"encoder = {encoder}")
+    #print(f"decoder = {decoder}")
+    #print(f"loss_num = {loss_num}")
     number_of_conv = 0
     for layer in conv_segment:
         if isinstance(layer, torch.nn.Conv2d):
@@ -322,6 +328,7 @@ def calc_result_endecoder(former, conv_segment, split_data_range, encoder, decod
     if loss_num != 0:
         output_list = lose_something(output_list, loss_num)
     decoded_output_list = decoder(output_list) 
+    #print(f"output_list[0] = {output_list[0].shape}")
     output = torch.cat(decoded_output_list, dim=3) # 将数据拼接
     output = maxpool_segment(output)
     return output
@@ -384,6 +391,31 @@ for i in Encoder_Decoder_block:
             optimizer_encoder[i].step()
             optimizer_decoder[i].step()
             train_loader_tqdm.set_postfix(loss=loss.item())
+
+save_dir = [None] * Module
+encoder_path = [None] * Module
+decoder_path = [None] * Module
+for i in Encoder_Decoder_block:
+    save_dir[i] = f"./save/{TASK_CONFIG['TASK']}/{TASK_CONFIG['MODEL']}/{TASK_CONFIG['DATE']}/K{K}-R{R}-conv-division-E-Dcoder-Num{i}/"
+    encoder_path[i] = (
+        save_dir[i]
+        + f"encoder-task_{TASK_CONFIG['TASK']}-basemodel_{TASK_CONFIG['MODEL']}-K{K}-R{R}.pth"
+    )
+    decoder_path[i] = (
+        save_dir[i]
+        + f"decoder-task_{TASK_CONFIG['TASK']}-basemodel_{TASK_CONFIG['MODEL']}-K{K}-R{R}.pth"
+    )
+
+    print(f"save_dir: {save_dir[i]}")
+    print(f"encoder_path: {encoder_path[i]}")
+    print(f"decoder_path: {decoder_path[i]}")
+
+import os
+for i in Encoder_Decoder_block:
+    os.makedirs(os.path.dirname(encoder_path[i]), exist_ok=True)
+    os.makedirs(os.path.dirname(decoder_path[i]), exist_ok=True)
+    torch.save(encoder[i].state_dict(), encoder_path[i])
+    torch.save(decoder[i].state_dict(), decoder_path[i])
 
 import torch
 from dataset.image_dataset import ImageDataset
@@ -457,11 +489,11 @@ def evaluation(loader, loss_num):
 
 # 训练集
 
-for i in range(N + 1):
+for i in range(4):
     print(f"loss_num: {i}")
     evaluation(train_loader, i)
 
 # 测试集
-for i in range(N + 1):
+for i in range(4):
     print(f"loss_num: {i}")
     evaluation(test_loader, i)
