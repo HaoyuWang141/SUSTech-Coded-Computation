@@ -190,7 +190,7 @@ from decoder.conv_decoder import CatChannelConvDecoder
 encoder = [None] * Module
 decoder = [None] * Module
 Encoder_Decoder_block = [0, 1]
-for i in Encoder_Decoder_block:
+for i in range(Module):
     print(f"CASE: {i}")
     print(f"K : {K} R : {R} split_data_shape: {split_data_shape[i]}")
     print(f"N : {N} K : {K} split_conv_output_shape: {split_conv_output_shape[i]}")
@@ -311,7 +311,7 @@ from util.split_data import split_vector
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torch import nn
-from random import randint, random
+import random as rnd
 fc_segment.to(device)
 model.to(device)
 for i in range(Module):
@@ -354,7 +354,7 @@ def evaluation(loader, loss_num):
                     last_output = maxpool_segment(last_output)
                 else:
                     tmp = tmp + 1;
-                    now_lose_num = random.randint(0, cur_lose)
+                    now_lose_num = rnd.randint(0, cur_lose)
                     if (tmp == len(Encoder_Decoder_block)):
                         now_lose_num = cur_lose
                         cur_lose = 0

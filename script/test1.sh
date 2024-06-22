@@ -8,4 +8,4 @@
 #SBATCH --gres=gpu:1           # 指定作业的需要的GPU卡数量，集群不一样，注意最大限制; 
 
 cd ../src
-python -m NewMethod.test
+python -m NewMethod.test1
