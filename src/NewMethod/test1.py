@@ -362,8 +362,9 @@ def evaluation(loader, loss_num):
                         cur_lose = cur_lose - now_lose_num
                     last_output = calc_result_endecoder(last_output, conv_segment[i], split_data_range[i], encoder[i], decoder[i], now_lose_num)
                 
-            last_output = output.view(output.size(0), -1)
-            _, predicted = torch.max(fc_segment(last_output).data, 1)
+            last_output = last_output.view(last_output.size(0), -1)
+            last_output = fc_segment(last_output)
+            _, predicted = torch.max(last_output.data, 1)
             correct += (predicted == labels).sum().item()
             total += labels.size(0)
 
