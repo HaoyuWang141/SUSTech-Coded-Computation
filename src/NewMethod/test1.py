@@ -44,8 +44,8 @@ test_dataset = datasets.ImageFolder(
 )
 
 # 创建DataLoader
-train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
 print("Data is ready!")
 print(f"当前任务为 {TASK_CONFIG['TASK']}")
@@ -183,60 +183,14 @@ for i in range(Module):
     split_data_shape[i] = split_data_shapes[i][0]
     print(f"choose the first one as the split_data_shape: {split_data_shape[i]}")
 
-import torch.nn.functional as F
-x = torch.randn(1, *original_data_shape).to(device)
-print(f"x.shape: {x.shape}")
-y = x
-last = x
-for i in range(Module):
-    conv_segment[i].to(device)
-    y = conv_segment[i](y)
-    print(f"CASE: {i} after conv y.shape: {y.shape}")
-    y = maxpool_segment(y)
-    print(f"CASE: {i} after maxpool y.shape: {y.shape}")
-    #units = [torch.nn.Sequential(*list(conv_segment[i].children())[j:j+2]) for j in range(0, len(conv_segment[i]), 2)]
-    x_split = [None] * K
-    y_split = [last[:, :, :, _[2]:_[3]] for _ in split_data_range[i]]
-    for layer in conv_segment[i]:
-        if isinstance(layer, torch.nn.Conv2d):
-            x_split = y_split
-            pad1 = (1, 0, 0, 0, 0, 0, 0, 0)
-            x_split[0] = F.pad(x_split[0], pad1, "constant", value=0)
-            pad2 = (0, 1, 0, 0, 0, 0, 0, 0)
-            x_split[-1] = F.pad(x_split[-1], pad2, "constant", value=0)
-            y_split = [layer(_x) for _x in x_split]
-            for j in range(K):
-                y_split[j] = y_split[j][:, :, :, 1:-1]
-        else:
-            for j in range(K):
-                y_split[j] = layer(y_split[j])
-    last = torch.cat(y_split, dim=3)      
-    last = maxpool_segment(last)
-    y_hat = last
-    output1 = y[:, :, :, :]
-    output2 = y_hat[:, :, :, :]
-    print(f"y和y_hat是否相等: {torch.allclose(output1, output2, rtol=1e-08, atol=1e-05)}")
-
-    diff = torch.abs(output1 - output2)
-    epsilon = 0.0001
-    print(f"y和y_hat是否相等: {torch.all(diff <= epsilon)}")
-
-    #for j in range(y.shape[2]):
-        #for k in range(0, 1):
-    #    k = 0
-    #    print(f"y[{j}][{k}]: {y[0, 0, j, k]} y_hat[{j}][{k}]: {y_hat[0, 0, j, k]}")
-    #if (i == 0):
-    #    outt = diff[0][1][:][:]
-    #    print(outt)
-
 from encoder.conv_encoder import CatChannelConvEncoder
 from decoder.conv_decoder import CatChannelConvDecoder
 
 
 encoder = [None] * Module
 decoder = [None] * Module
-
-for i in range(Module):
+Encoder_Decoder_block = [0, 1]
+for i in Encoder_Decoder_block:
     print(f"CASE: {i}")
     print(f"K : {K} R : {R} split_data_shape: {split_data_shape[i]}")
     print(f"N : {N} K : {K} split_conv_output_shape: {split_conv_output_shape[i]}")
@@ -244,7 +198,6 @@ for i in range(Module):
     getModelSize(encoder[i])
     decoder[i] = CatChannelConvDecoder(num_in=N, num_out=K, in_dim=split_conv_output_shape[i])
     getModelSize(decoder[i])
-
 
 def lose_something(output_list, lose_num):
     if lose_num == 0:
@@ -287,12 +240,6 @@ fc_segment.eval()
 model.eval()
 start_time = datetime.datetime.now()
 def calc_result_endecoder(former, conv_segment, split_data_range, encoder, decoder, loss_num = 0):
-    #print(f"former = {former.shape}")
-    #print(f"conv_segment = {conv_segment}")
-    #print(f"split_data_range = {split_data_range}")
-    #print(f"encoder = {encoder}")
-    #print(f"decoder = {decoder}")
-    #print(f"loss_num = {loss_num}")
     number_of_conv = 0
     for layer in conv_segment:
         if isinstance(layer, torch.nn.Conv2d):
@@ -328,69 +275,9 @@ def calc_result_endecoder(former, conv_segment, split_data_range, encoder, decod
     if loss_num != 0:
         output_list = lose_something(output_list, loss_num)
     decoded_output_list = decoder(output_list) 
-    #print(f"output_list[0] = {output_list[0].shape}")
     output = torch.cat(decoded_output_list, dim=3) # 将数据拼接
     output = maxpool_segment(output)
     return output
-                    
-Encoder_Decoder_block = [0, 1]
-for i in Encoder_Decoder_block:
-    print(f"CASE: {i}")
-    optimizer_encoder[i] = optim.Adam(encoder[i].parameters(), lr=1e-4, weight_decay=1e-6)
-    optimizer_decoder[i] = optim.Adam(decoder[i].parameters(), lr=1e-4, weight_decay=1e-6)
-
-    conv_segment[i].to(device)
-    encoder[i].to(device)
-    decoder[i].to(device)
-
-    conv_segment[i].eval()
-    encoder[i].train()
-    decoder[i].train()
-
-    for m in model.modules():
-        if isinstance(m, nn.BatchNorm2d):
-            m.track_running_stats = False
-
-    loss_list = [[] for _ in range(epoch_num)]
-    for epoch in range(epoch_num):
-        train_loader_tqdm = tqdm(
-            train_loader,
-            desc=f"Epoch {epoch+1}/{epoch_num}",
-            bar_format="{l_bar}{bar:20}{r_bar}",
-        )
-        correct = 0
-        correct_truth = 0
-        total = 0
-        for images, labels in train_loader_tqdm:
-            images = images.to(device)
-            labels = labels.to(device)
-
-            # 把整一张完整的图片输入到模型中，得到ground_truth
-            former = images
-            for j in range(i): 
-                if j not in Encoder_Decoder_block:
-                    former = conv_segment[j](former)
-                    former = maxpool_segment(former)
-                else:
-                    former = calc_result_endecoder(former, conv_segment[j], split_data_range[j], encoder[j], decoder[j])
-            ground_truth = conv_segment[i](former)
-            ground_truth = maxpool_segment(ground_truth)
-            ground_truth = ground_truth.view(ground_truth.size(0), -1) # 将数据展平
-            
-            output = calc_result_endecoder(former, conv_segment[i], split_data_range[i], encoder[i], decoder[i])
-            output = output.view(output.size(0), -1) # 将数据展平
-            
-            loss = criterion(output, ground_truth)
-
-            loss_list[epoch].append(loss.item())
-
-            # backward
-            optimizer_encoder[i].zero_grad()
-            optimizer_decoder[i].zero_grad()
-            loss.backward()
-            optimizer_encoder[i].step()
-            optimizer_decoder[i].step()
-            train_loader_tqdm.set_postfix(loss=loss.item())
 
 save_dir = [None] * Module
 encoder_path = [None] * Module
@@ -410,12 +297,13 @@ for i in Encoder_Decoder_block:
     print(f"encoder_path: {encoder_path[i]}")
     print(f"decoder_path: {decoder_path[i]}")
 
-import os
+import os;
+print("original dir: ", os.getcwd())
 for i in Encoder_Decoder_block:
-    os.makedirs(os.path.dirname(encoder_path[i]), exist_ok=True)
-    os.makedirs(os.path.dirname(decoder_path[i]), exist_ok=True)
-    torch.save(encoder[i].state_dict(), encoder_path[i])
-    torch.save(decoder[i].state_dict(), decoder_path[i])
+    print(f"encoder_path: {encoder_path[i]}")
+    print(f"decoder_path: {decoder_path[i]}")
+    encoder[i].load_state_dict(torch.load(encoder_path[i], map_location=device))
+    decoder[i].load_state_dict(torch.load(decoder_path[i], map_location=device))
 
 import torch
 from dataset.image_dataset import ImageDataset
