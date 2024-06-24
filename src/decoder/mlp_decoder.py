@@ -26,6 +26,30 @@ class MLPDecoder(Decoder):
         out = out.view(batch_size, self.num_out, *self.out_dim)
         out = list(torch.unbind(out, dim=1))
         return out
+    
+
+class ShrinkMLPDecoder(Decoder):
+    def __init__(self, num_in: int, num_out: int, in_dim: tuple) -> None:
+        super().__init__(num_in, num_out, in_dim)
+        inter_dim = (num_in + num_out) * 32
+        self.nn = nn.Sequential(
+            nn.Linear(num_in * prod(in_dim), inter_dim),
+            nn.ReLU(),
+            nn.Linear(inter_dim, inter_dim),
+            nn.ReLU(),
+            nn.Linear(inter_dim, num_out * prod(in_dim)),
+        )
+
+    def forward(self, datasets: list[torch.Tensor]) -> list[torch.Tensor]:
+        if len(datasets) == 0 or self.num_out == 0:
+            return []
+        datasets = torch.stack(datasets, dim=1)
+        batch_size = datasets.size(0)
+        datasets = datasets.view(batch_size, -1)
+        out = self.nn(datasets)
+        out = out.view(batch_size, self.num_out, *self.out_dim)
+        out = list(torch.unbind(out, dim=1))
+        return out
 
 
 if __name__ == "__main__":
