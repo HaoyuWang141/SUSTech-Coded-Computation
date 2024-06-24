@@ -31,7 +31,7 @@ class MLPDecoder(Decoder):
 class ShrinkMLPDecoder(Decoder):
     def __init__(self, num_in: int, num_out: int, in_dim: tuple) -> None:
         super().__init__(num_in, num_out, in_dim)
-        inter_dim = (num_in + num_out) * 32
+        inter_dim = 20
         self.nn = nn.Sequential(
             nn.Linear(num_in * prod(in_dim), inter_dim),
             nn.ReLU(),
